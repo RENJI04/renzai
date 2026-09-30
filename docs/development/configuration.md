@@ -1,0 +1,9 @@
+# Configuration
+
+`.env.example` contains placeholders only. `Settings` consumes `RENZAI_*` values with explicit aliases, validates production HTTPS and credentialed CORS, and exposes typed groups for APP, DATABASE, REDIS, SESSION, CRYPTO, CSRF, CORS, RATE_LIMIT, SECURITY_ENGINE, OUTBOUND_NETWORK, PROVIDER, CELERY, LOGGING, OBSERVABILITY, PRIVACY, RETENTION and FEATURE_FLAGS.
+
+Identity defaults are a 30-minute idle session, 12-hour absolute session, 30-minute reset token, 24-hour verification token, seven-day invitation, and ten auth attempts per five-minute fixed window. Production/staging require a supplied verifier key and secure cookies. Local development uses `renzai_session`; protected environments use `__Host-renzai_session`. Tokens, passwords, cookie values, and raw rate-limit identifiers are never committed, persisted in cleartext, or logged.
+
+Phase 8 adds a JSON provider-credential key ring with an active key ID. Each root must contain at least 32 UTF-8 bytes, roots must be distinct from one another and from session/application-key verifier roots, and staging/production reject development placeholders. The default provider bounds are 3-second connect, 30-second chat, 5-second health, 128-KiB response, and zero redirects. Remote providers require HTTPS; local/private destinations require the local provider kind and an exact entry in `RENZAI_OUTBOUND_TRUSTED_LOCAL_PROVIDER_HOSTS`.
+
+Gateway defaults are a 96-KiB request body, 32 messages, 64-KiB combined message text, 4,096 generated-token ceiling, and a separate 30-requests-per-minute application-key bucket. Redis keys contain only the existing keyed application-key identifier, never the full key. See [Phase 8 request contract](../phase-08/05-gateway-request-contract.md) and [outbound network controls](../phase-08/03-outbound-network-and-ssrf.md).

@@ -1,0 +1,26 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# JavaScript
+node_modules/
+.next/
+coverage/
+playwright-report/
+test-results/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,27 @@
+# Security requirements register
+
+- **SEC-001** Passwords MUST never be stored or logged in plaintext and MUST use Argon2-class hashing.
+- **SEC-002** Renzai application API keys MUST never be stored in plaintext after their one-time display.
+- **SEC-003** Authentication endpoints MUST apply brute-force protections and rate limits.
+- **SEC-004** Every tenant-bound resource operation MUST authorize the actor and enforce organization isolation server-side.
+- **SEC-005** The system MUST mitigate CSRF for cookie-authenticated state-changing requests; non-cookie credential flows MUST document their equivalent protections.
+- **SEC-006** CORS MUST be configurable and default to a restrictive policy.
+- **SEC-007** All untrusted input MUST undergo allowlist-oriented validation, normalization, and bounded-size checks appropriate to its endpoint.
+- **SEC-008** Persistent data access MUST use an ORM or prepared statements and MUST NOT construct executable queries from untrusted input.
+- **SEC-009** Dashboard-rendered untrusted content MUST be output encoded or sanitized to mitigate XSS.
+- **SEC-010** Sensitive prompt, response, secret, and PII data MUST be redacted from normal logs according to the selected privacy policy.
+- **SEC-011** Revoked or expired application API keys MUST fail authentication immediately after revocation or expiry takes effect.
+- **SEC-012** External AI provider credentials MUST be encrypted at rest and excluded from API and log responses.
+- **SEC-013** Secrets, credentials, and private keys MUST NOT be committed to the repository; example configuration MUST contain placeholders only.
+- **SEC-014** Production configuration MUST use secure defaults and require explicit opt-in for unsafe development conveniences.
+- **SEC-015** Security-relevant account, membership, policy, key, provider, privacy, retention, and webhook changes MUST generate audit events.
+- **SEC-016** Sensitive endpoints and public analysis/gateway endpoints MUST apply documented rate limits.
+- **SEC-017** Production error responses MUST NOT expose stack traces, secret values, internal URLs, or unnecessary implementation detail.
+- **SEC-018** Secret, token, and key comparisons MUST use constant-time comparison where applicable.
+- **SEC-019** Webhook payloads MUST support authenticated signing, timestamping, and documented verification.
+- **SEC-020** Remote provider URLs and webhook targets MUST default to HTTPS; SSRF controls MUST revalidate DNS, redirects, and resolved IPs, deny loopback, RFC1918/private, link-local, multicast, unspecified, and cloud-metadata-style destinations by default, forbid URL-embedded credentials, and permit local/private endpoints only through explicit self-hosted configuration.
+- **SEC-021** Provider and webhook requests MUST enforce connect and total timeouts, redirect limits, and bounded response sizes.
+- **SEC-022** Webhook/event mechanisms MUST define replay detection or idempotency guidance using event identity and freshness data.
+- **SEC-023** Security findings and audit logs MUST follow the selected privacy storage mode and retention policy.
+- **SEC-024** Application keys, reset tokens, invitation tokens, and opaque server-side sessions MUST use cryptographically secure generation and lifecycle controls; the browser session credential MUST be Secure and HttpOnly.
+- **SEC-025** Security controls reduce risk but do not establish absolute security; release documentation MUST state residual limitations.

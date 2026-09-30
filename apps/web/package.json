@@ -1,0 +1,42 @@
+{
+  "name": "@renzai/web",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint src next.config.ts",
+    "format": "prettier --write src next.config.ts package.json",
+    "format:check": "prettier --check src next.config.ts package.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.103.2",
+    "next": "16.3.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.6",
+    "globals": "^16.5.0",
+    "jsdom": "^27.2.0",
+    "prettier": "^3.7.4",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.50.0",
+    "vitest": "^5.0.1"
+  }
+}

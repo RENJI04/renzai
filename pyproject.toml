@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "renzai"
+version = "0.0.0"
+description = "Renzai open-source AI security and observability platform"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "alembic>=1.16,<2",
+  "argon2-cffi>=25.1,<26",
+  "asyncpg>=0.30,<1",
+  "celery>=5.5,<6",
+  "cryptography>=46,<47",
+  "fastapi>=0.141,<0.142",
+  "httpx>=0.28,<1",
+  "pydantic>=2.11,<3",
+  "pydantic-settings>=2.10,<3",
+  "redis>=6,<7",
+  "sqlalchemy>=2.0.41,<3",
+  "structlog>=25.4,<26",
+  "uuid6>=2025.0.1,<2026",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "aiosqlite>=0.21,<1",
+  "mypy>=1.15,<2",
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<1",
+  "ruff>=0.11,<1",
+]
+
+[tool.setuptools]
+package-dir = {"" = "apps/api/src"}
+
+[tool.setuptools.packages.find]
+where = ["apps/api/src"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["apps/api/src", "apps/api/tests", "workers/src", "workers/tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"apps/api/tests/**/*.py" = ["S101"]
+"workers/tests/**/*.py" = ["S101"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["apps/api/src", "workers/src"]
+mypy_path = ["apps/api/src", "workers/src"]
+explicit_package_bases = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["argon2.*", "celery.*", "uuid6"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["apps/api/tests", "workers/tests"]
+asyncio_mode = "auto"
+markers = [
+  "integration: requires an explicitly configured local PostgreSQL or Redis service",
+]

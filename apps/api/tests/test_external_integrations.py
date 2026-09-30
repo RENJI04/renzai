@@ -1,0 +1,552 @@
+"""Opt-in connectivity checks; never point these variables at production services."""
+
+from __future__ import annotations
+
+import asyncio
+import os
+from uuid import UUID
+
+import pytest
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
+
+from renzai.core.config import DatabaseConfig, RedisConfig
+from renzai.core.errors import RenzaiError
+from renzai.core.ids import new_uuid7
+from renzai.db import models as _models  # noqa: F401
+from renzai.db.session import Database
+from renzai.infrastructure.crypto.application_keys import ApplicationKeyCrypto
+from renzai.infrastructure.crypto.identity import IdentityCrypto
+from renzai.infrastructure.redis.client import RedisClient
+from renzai.modules.api_keys.models import ApplicationApiKey
+from renzai.modules.applications.models import Application
+from renzai.modules.environments.models import Environment
+from renzai.modules.gateway.rate_limit import RedisGatewayRateLimiter
+from renzai.modules.memberships.domain import MembershipRole
+from renzai.modules.memberships.models import Membership
+from renzai.modules.organizations.application import OrganizationService
+from renzai.modules.organizations.models import Organization
+from renzai.modules.policies.models import Policy
+from renzai.modules.providers.models import ProviderConfiguration
+from renzai.modules.security.models import AnalysisResult, Finding, SecurityEvent
+from renzai.modules.security.rate_limit import RedisAnalyzeRateLimiter
+from renzai.modules.users.models import User
+
+
+@pytest.mark.integration
+async def test_postgresql_ping_when_explicit_test_url_is_configured() -> None:
+    database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("set RENZAI_TEST_DATABASE_URL to run PostgreSQL connectivity")
+    if not database_url.startswith("postgresql+asyncpg://"):
+        pytest.fail("RENZAI_TEST_DATABASE_URL must be an asyncpg PostgreSQL URL")
+    database = Database(DatabaseConfig(url=database_url, pool_size=1, max_overflow=0))
+    try:
+        assert await database.ping() is True
+    finally:
+        await database.close()
+
+
+@pytest.mark.integration
+async def test_redis_ping_when_explicit_test_url_is_configured() -> None:
+    redis_url = os.environ.get("RENZAI_TEST_REDIS_URL")
+    if not redis_url:
+        pytest.skip("set RENZAI_TEST_REDIS_URL to run Redis connectivity")
+    client = RedisClient(RedisConfig(url=redis_url, required_for_readiness=True))
+    try:
+        assert await client.ping() is True
+        bucket = f"integration-{new_uuid7()}"
+        assert await client.increment_window(bucket, 5) == 1
+        assert await client.increment_window(bucket, 5) == 2
+        limiter = RedisAnalyzeRateLimiter(client, requests=1, window_seconds=5)
+        await limiter.check(f"analyze-{bucket}")
+        with pytest.raises(RenzaiError) as error:
+            await limiter.check(f"analyze-{bucket}")
+        assert error.value.code == "rate_limit"
+        gateway_limiter = RedisGatewayRateLimiter(client, requests=1, window_seconds=5)
+        await gateway_limiter.check(f"gateway-{bucket}")
+        with pytest.raises(RenzaiError) as gateway_error:
+            await gateway_limiter.check(f"gateway-{bucket}")
+        assert gateway_error.value.code == "rate_limit"
+    finally:
+        await client.close()
+
+
+@pytest.mark.integration
+async def test_postgresql_serializes_competing_owner_demotions() -> None:
+    database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("set RENZAI_TEST_DATABASE_URL to run PostgreSQL owner concurrency")
+    if not database_url.startswith("postgresql+asyncpg://"):
+        pytest.fail("RENZAI_TEST_DATABASE_URL must be an asyncpg PostgreSQL URL")
+    database = Database(DatabaseConfig(url=database_url, pool_size=4, max_overflow=0))
+    organization_id = new_uuid7()
+    first_user_id = new_uuid7()
+    second_user_id = new_uuid7()
+    first_membership_id = new_uuid7()
+    second_membership_id = new_uuid7()
+    slug = f"owner-race-{str(organization_id)[:12]}"
+    try:
+        async with database.session() as setup:
+            setup.add_all(
+                [
+                    User(
+                        user_id=first_user_id,
+                        email=f"{first_user_id}@example.test",
+                        normalized_email=f"{first_user_id}@example.test",
+                    ),
+                    User(
+                        user_id=second_user_id,
+                        email=f"{second_user_id}@example.test",
+                        normalized_email=f"{second_user_id}@example.test",
+                    ),
+                    Organization(
+                        organization_id=organization_id,
+                        name="Owner race integration",
+                        slug=slug,
+                        settings={"audit_retention_days": 365},
+                    ),
+                ]
+            )
+            await setup.flush()
+            setup.add_all(
+                [
+                    Membership(
+                        membership_id=first_membership_id,
+                        organization_id=organization_id,
+                        user_id=first_user_id,
+                        role="owner",
+                        status="active",
+                    ),
+                    Membership(
+                        membership_id=second_membership_id,
+                        organization_id=organization_id,
+                        user_id=second_user_id,
+                        role="owner",
+                        status="active",
+                    ),
+                ]
+            )
+            await setup.commit()
+
+        async def demote(actor_id: UUID, target_id: UUID, actor_user_id: UUID) -> str:
+            async with database.session() as session:
+                actor = await session.get(Membership, actor_id)
+                actor_user = await session.get(User, actor_user_id)
+                assert actor is not None and actor_user is not None
+                service = OrganizationService(
+                    session,
+                    IdentityCrypto("integration-only-key-material-000000", "v1"),
+                    168,
+                    365,
+                )
+                try:
+                    await service.change_member_role(
+                        organization_id, actor, actor_user, target_id, MembershipRole.ADMIN
+                    )
+                except RenzaiError as error:
+                    await session.rollback()
+                    return error.code
+                return "success"
+
+        outcomes = await asyncio.gather(
+            demote(first_membership_id, second_membership_id, first_user_id),
+            demote(second_membership_id, first_membership_id, second_user_id),
+        )
+        assert outcomes.count("success") == 1
+        async with database.session() as verify:
+            owner_count = await verify.scalar(
+                select(func.count())
+                .select_from(Membership)
+                .where(
+                    Membership.organization_id == organization_id,
+                    Membership.status == "active",
+                    Membership.role == "owner",
+                )
+            )
+            assert owner_count == 1
+    finally:
+        async with database.session() as cleanup:
+            await cleanup.execute(
+                delete(Organization).where(Organization.organization_id == organization_id)
+            )
+            await cleanup.execute(
+                delete(User).where(User.user_id.in_([first_user_id, second_user_id]))
+            )
+            await cleanup.commit()
+        await database.close()
+
+
+@pytest.mark.integration
+async def test_postgresql_phase6_constraints_and_analysis_persistence() -> None:
+    database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("set RENZAI_TEST_DATABASE_URL to run PostgreSQL Phase 6 integration")
+    database = Database(DatabaseConfig(url=database_url, pool_size=2, max_overflow=0))
+    user_id = new_uuid7()
+    organization_id = new_uuid7()
+    other_organization_id = new_uuid7()
+    application_id = new_uuid7()
+    environment_id = new_uuid7()
+    event_id = new_uuid7()
+    analysis_id = new_uuid7()
+    crypto = ApplicationKeyCrypto("integration-application-key-root-0001", "v1")
+    issued = crypto.issue("development")
+    try:
+        async with database.session() as setup:
+            setup.add(
+                User(
+                    user_id=user_id,
+                    email=f"{user_id}@example.test",
+                    normalized_email=f"{user_id}@example.test",
+                )
+            )
+            setup.add_all(
+                [
+                    Organization(
+                        organization_id=organization_id,
+                        name="Phase 6 integration",
+                        slug=f"phase6-{str(organization_id)[:12]}",
+                        settings={"audit_retention_days": 365},
+                    ),
+                    Organization(
+                        organization_id=other_organization_id,
+                        name="Phase 6 other",
+                        slug=f"phase6-other-{str(other_organization_id)[:12]}",
+                        settings={"audit_retention_days": 365},
+                    ),
+                ]
+            )
+            await setup.flush()
+            setup.add(
+                Application(
+                    application_id=application_id,
+                    organization_id=organization_id,
+                    name="Detector app",
+                    name_key="detector app",
+                )
+            )
+            await setup.flush()
+            setup.add(
+                Environment(
+                    environment_id=environment_id,
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    type="development",
+                )
+            )
+            await setup.flush()
+            setup.add(
+                ApplicationApiKey(
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    environment_id=environment_id,
+                    created_by_user_id=user_id,
+                    label="integration",
+                    lookup=issued.lookup,
+                    prefix=issued.prefix,
+                    verifier=issued.verifier,
+                    verifier_key_id="v1",
+                )
+            )
+            setup.add(
+                SecurityEvent(
+                    event_id=event_id,
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    environment_id=environment_id,
+                    direction="input",
+                    source="analyze",
+                    correlation_id=str(new_uuid7()),
+                    privacy_mode="REDACTED",
+                    content="[REDACTED:EMAIL]",
+                    content_bytes=16,
+                    retention_days=30,
+                )
+            )
+            await setup.flush()
+            setup.add(
+                AnalysisResult(
+                    analysis_id=analysis_id,
+                    event_id=event_id,
+                    normalization_version="1.0.0",
+                    ruleset_version="1.0.0",
+                    finding_count=1,
+                    normalization_ms=1,
+                    detector_ms=1,
+                    total_ms=2,
+                    capabilities={"detection": True},
+                )
+            )
+            await setup.flush()
+            setup.add(
+                Finding(
+                    analysis_id=analysis_id,
+                    detector_id="pii.email",
+                    detector_version="1.0.0",
+                    ruleset_version="1.0.0",
+                    category="pii_exposure",
+                    direction="input",
+                    severity="medium",
+                    confidence=98,
+                    evidence={"kind": "redacted_excerpt", "text": "[REDACTED:EMAIL]"},
+                    safe_explanation="An email address was detected and redacted.",
+                    safe_metadata={"rule_id": "email"},
+                )
+            )
+            await setup.commit()
+
+        async with database.session() as verify:
+            assert await verify.scalar(select(func.count()).select_from(SecurityEvent)) >= 1
+            assert await verify.scalar(select(func.count()).select_from(Finding)) >= 1
+
+        async with database.session() as invalid_tenant:
+            invalid_tenant.add(
+                Environment(
+                    organization_id=other_organization_id,
+                    application_id=application_id,
+                    type="staging",
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await invalid_tenant.commit()
+            await invalid_tenant.rollback()
+
+        async with database.session() as duplicate:
+            duplicate.add(
+                Environment(
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    type="development",
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await duplicate.commit()
+            await duplicate.rollback()
+    finally:
+        async with database.session() as cleanup:
+            await cleanup.execute(
+                delete(Organization).where(
+                    Organization.organization_id.in_([organization_id, other_organization_id])
+                )
+            )
+            await cleanup.execute(delete(User).where(User.user_id == user_id))
+            await cleanup.commit()
+        await database.close()
+
+
+@pytest.mark.integration
+async def test_postgresql_phase7_duplicate_priority_race() -> None:
+    database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("set RENZAI_TEST_DATABASE_URL to run PostgreSQL Phase 7 priority race")
+    if not database_url.startswith("postgresql+asyncpg://"):
+        pytest.fail("RENZAI_TEST_DATABASE_URL must be an asyncpg PostgreSQL URL")
+    database = Database(DatabaseConfig(url=database_url, pool_size=4, max_overflow=0))
+    organization_id = new_uuid7()
+    application_id = new_uuid7()
+    try:
+        async with database.session() as setup:
+            setup.add(
+                Organization(
+                    organization_id=organization_id,
+                    name="Phase 7 priority race",
+                    slug=f"phase7-race-{str(organization_id)[:12]}",
+                    settings={"audit_retention_days": 365},
+                )
+            )
+            await setup.flush()
+            setup.add(
+                Application(
+                    application_id=application_id,
+                    organization_id=organization_id,
+                    name="Policy race",
+                    name_key="policy race",
+                )
+            )
+            await setup.commit()
+
+        async def create_competing_policy(label: str) -> str:
+            async with database.session() as session:
+                session.add(
+                    Policy(
+                        organization_id=organization_id,
+                        application_id=application_id,
+                        environment_id=None,
+                        scope_kind="application",
+                        scope_id=application_id,
+                        name=label,
+                        phase="input",
+                        priority=912_345,
+                        enabled=False,
+                        active_version=1,
+                        status="active",
+                        is_baseline=False,
+                    )
+                )
+                try:
+                    await session.commit()
+                except IntegrityError:
+                    await session.rollback()
+                    return "conflict"
+                return "success"
+
+        outcomes = await asyncio.gather(
+            create_competing_policy("Race A"), create_competing_policy("Race B")
+        )
+        assert sorted(outcomes) == ["conflict", "success"]
+        async with database.session() as verify:
+            count = await verify.scalar(
+                select(func.count())
+                .select_from(Policy)
+                .where(
+                    Policy.organization_id == organization_id,
+                    Policy.scope_id == application_id,
+                    Policy.phase == "input",
+                    Policy.priority == 912_345,
+                )
+            )
+            assert count == 1
+    finally:
+        async with database.session() as cleanup:
+            await cleanup.execute(
+                delete(Organization).where(Organization.organization_id == organization_id)
+            )
+            await cleanup.commit()
+        await database.close()
+
+
+@pytest.mark.integration
+async def test_postgresql_phase8_provider_constraints() -> None:
+    database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("set RENZAI_TEST_DATABASE_URL to run PostgreSQL Phase 8 constraints")
+    if not database_url.startswith("postgresql+asyncpg://"):
+        pytest.fail("RENZAI_TEST_DATABASE_URL must be an asyncpg PostgreSQL URL")
+    database = Database(DatabaseConfig(url=database_url, pool_size=2, max_overflow=0))
+    organization_id = new_uuid7()
+    other_organization_id = new_uuid7()
+    application_id = new_uuid7()
+    environment_id = new_uuid7()
+    try:
+        async with database.session() as setup:
+            setup.add_all(
+                [
+                    Organization(
+                        organization_id=organization_id,
+                        name="Phase 8 provider constraints",
+                        slug=f"phase8-{str(organization_id)[:12]}",
+                        settings={"audit_retention_days": 365},
+                    ),
+                    Organization(
+                        organization_id=other_organization_id,
+                        name="Phase 8 other tenant",
+                        slug=f"phase8-other-{str(other_organization_id)[:12]}",
+                        settings={"audit_retention_days": 365},
+                    ),
+                ]
+            )
+            await setup.flush()
+            setup.add(
+                Application(
+                    application_id=application_id,
+                    organization_id=organization_id,
+                    name="Gateway",
+                    name_key="gateway",
+                )
+            )
+            await setup.flush()
+            setup.add(
+                Environment(
+                    environment_id=environment_id,
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    type="development",
+                )
+            )
+            await setup.flush()
+            setup.add(
+                ProviderConfiguration(
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    environment_id=environment_id,
+                    kind="openai_compatible_remote",
+                    name="Primary",
+                    name_key="primary",
+                    base_url="https://provider.example",
+                    model="test-model",
+                    credential_ciphertext=b"encrypted-only",
+                    credential_key_id="provider-v1",
+                    supports_seed=False,
+                    max_tokens=4096,
+                    connect_timeout_seconds=3,
+                    chat_timeout_seconds=30,
+                    health_timeout_seconds=5,
+                    response_max_bytes=128 * 1024,
+                    status="active",
+                    validation_policy_version="1.0.0",
+                    last_validation_status="never",
+                )
+            )
+            await setup.commit()
+
+        async with database.session() as duplicate:
+            duplicate.add(
+                ProviderConfiguration(
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    environment_id=environment_id,
+                    kind="openai_compatible_local",
+                    name="PRIMARY",
+                    name_key="primary",
+                    base_url="http://localhost:11434",
+                    model="test-model",
+                    supports_seed=False,
+                    max_tokens=4096,
+                    connect_timeout_seconds=3,
+                    chat_timeout_seconds=30,
+                    health_timeout_seconds=5,
+                    response_max_bytes=128 * 1024,
+                    status="active",
+                    validation_policy_version="1.0.0",
+                    last_validation_status="never",
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await duplicate.commit()
+            await duplicate.rollback()
+
+        async with database.session() as wrong_tenant:
+            wrong_tenant.add(
+                ProviderConfiguration(
+                    organization_id=other_organization_id,
+                    application_id=application_id,
+                    environment_id=environment_id,
+                    kind="openai_compatible_remote",
+                    name="Wrong tenant",
+                    name_key="wrong tenant",
+                    base_url="https://provider.example",
+                    model="test-model",
+                    supports_seed=False,
+                    max_tokens=4096,
+                    connect_timeout_seconds=3,
+                    chat_timeout_seconds=30,
+                    health_timeout_seconds=5,
+                    response_max_bytes=128 * 1024,
+                    status="active",
+                    validation_policy_version="1.0.0",
+                    last_validation_status="never",
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await wrong_tenant.commit()
+            await wrong_tenant.rollback()
+    finally:
+        async with database.session() as cleanup:
+            await cleanup.execute(
+                delete(Organization).where(
+                    Organization.organization_id.in_([organization_id, other_organization_id])
+                )
+            )
+            await cleanup.commit()
+        await database.close()

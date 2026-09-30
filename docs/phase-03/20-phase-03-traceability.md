@@ -1,0 +1,47 @@
+# Phase 3 traceability and specification vectors
+
+This is a design trace, not evidence of implementation or tests. Ranges are inclusive. [Phase 1 requirements](../phase-01/11-traceability-matrix.md) remain product authority; the [Phase 2 trace](../phase-02/17-phase-02-traceability.md) and [module architecture](../phase-02/04-domain-module-architecture.md) remain architecture authority. The last column names planned Phase 4 implementation modules, not delivered code. Every Phase 3 document is included by at least one contract reference below or in the [review](21-phase-03-review.md).
+
+| Phase 1 IDs | Phase 2 component / ADR | Phase 3 contract | Planned Phase 4 module(s) |
+|---|---|---|---|
+| FR-001–006; NFR-005, NFR-007; SEC-001, SEC-003, SEC-005, SEC-017, SEC-024; US-001 | Auth/users, browser session; [ADR-006](../adr/ADR-006-opaque-sessions.md), [ADR-002](../adr/ADR-002-fastapi-python.md) | [Entity](03-entity-contracts.md), [auth/session](04-auth-session-contracts.md), [errors](17-error-contracts.md), [API](18-api-catalog.md) | `auth`, `users` |
+| FR-007–012; SEC-004, SEC-015, SEC-024; US-002–004 | Organizations/memberships; [ADR-001](../adr/ADR-001-modular-monolith.md) | [Logical data](02-logical-data-model.md), [tenant/RBAC](05-tenant-rbac-contracts.md), [API](18-api-catalog.md) | `organizations`, `memberships` |
+| FR-013–014; SEC-004, SEC-014; US-005 | Applications/environments; [ADR-001](../adr/ADR-001-modular-monolith.md), [ADR-004](../adr/ADR-004-postgresql.md) | [Entity](03-entity-contracts.md), [tenant/RBAC](05-tenant-rbac-contracts.md), [API](18-api-catalog.md) | `applications`, `environments` |
+| FR-015–019; NFR-006; SEC-002, SEC-011, SEC-018, SEC-024; US-006, US-027 | API keys; [ADR-007](../adr/ADR-007-application-api-keys.md) | [Key lifecycle](06-application-api-key-contracts.md), [API](18-api-catalog.md), [configuration](19-configuration-contracts.md) | `api_keys` |
+| FR-020–028; NFR-001, NFR-010, NFR-015; SEC-007, SEC-010, SEC-016, SEC-025; US-007, US-009–011, US-014, US-020, US-028–029 | Security/detectors; [ADR-008](../adr/ADR-008-deterministic-security.md), [ADR-013](../adr/ADR-013-privacy-defaults.md) | [Analysis](07-security-analysis-contracts.md), [finding/detector](08-detector-finding-contracts.md), [risk](09-risk-scoring-specification.md), [API](18-api-catalog.md) | `security`, `detectors`, `logs` |
+| FR-029–030; SEC-025; US-007, US-009–010, US-028–029 | Risk profiles; [ADR-009](../adr/ADR-009-versioned-risk.md) | [Risk arithmetic](09-risk-scoring-specification.md), [entity](03-entity-contracts.md) | `risk` |
+| FR-031–033; SEC-004, SEC-014–015; US-012–014 | Policy engine; [ADR-010](../adr/ADR-010-declarative-policy.md) | [Policy](10-policy-contracts.md), [analysis](07-security-analysis-contracts.md), [API](18-api-catalog.md) | `policies`, `security` |
+| FR-034–036; SEC-004, SEC-023; US-015–017 | Incidents/timeline; [ADR-004](../adr/ADR-004-postgresql.md), [ADR-015](../adr/ADR-015-append-only-audit.md) | [Incident/audit](11-incident-audit-contracts.md), [event/outbox](15-event-outbox-contracts.md), [API](18-api-catalog.md) | `incidents`, `audit` |
+| FR-037–040; NFR-008, NFR-011; SEC-004, SEC-010, SEC-023; US-018–020 | Logs/analytics/dashboard/playground; [ADR-003](../adr/ADR-003-nextjs-typescript.md), [ADR-016](../adr/ADR-016-observability-stack.md) | [Analysis/event](07-security-analysis-contracts.md), [privacy](14-privacy-retention-contracts.md), [API](18-api-catalog.md) | `logs`, `analytics`, `security` |
+| FR-041–043; NFR-002, NFR-006; SEC-012, SEC-017, SEC-020–021; US-021–024 | Providers/AI intelligence; [ADR-011](../adr/ADR-011-provider-abstraction.md), [ADR-014](../adr/ADR-014-ssrf-safe-outbound-networking.md) | [Provider](12-provider-contracts.md), [privacy](14-privacy-retention-contracts.md), [API](18-api-catalog.md) | `providers`, `ai_intelligence` |
+| FR-044–046; NFR-002, NFR-014–015; SEC-007, SEC-014, SEC-016–017, SEC-020–021; US-008, US-013, US-023 | Gateway; [ADR-012](../adr/ADR-012-limited-gateway.md), [ADR-008](../adr/ADR-008-deterministic-security.md) | [Gateway protocol](13-gateway-api-contract.md), [provider](12-provider-contracts.md), [errors](17-error-contracts.md) | `gateway`, `security`, `providers` |
+| FR-047–048; SEC-015, SEC-023; US-025 | Audit/outbox; [ADR-015](../adr/ADR-015-append-only-audit.md) | [Audit](11-incident-audit-contracts.md), [outbox](15-event-outbox-contracts.md), [retention](14-privacy-retention-contracts.md) | `audit` and event-producing modules |
+| FR-049–050, FR-056; NFR-004; SEC-004, SEC-015, SEC-019–022; US-030–031 | Notifications/webhooks/worker; [ADR-005](../adr/ADR-005-redis-celery.md), [ADR-014](../adr/ADR-014-ssrf-safe-outbound-networking.md) | [Webhook/notification](16-webhook-notification-contracts.md), [outbox](15-event-outbox-contracts.md), [API](18-api-catalog.md) | `notifications` |
+| FR-051–053; SEC-010, SEC-023; US-011, US-020, US-026 | Privacy/retention; [ADR-013](../adr/ADR-013-privacy-defaults.md) | [Privacy](14-privacy-retention-contracts.md), [entity](03-entity-contracts.md), [configuration](19-configuration-contracts.md) | `applications`, `logs`, `audit`, `analytics` |
+| FR-054–055; NFR-013–014; SEC-017; US-032 | API docs/health/readiness; [ADR-002](../adr/ADR-002-fastapi-python.md) | [API catalog](18-api-catalog.md), [errors](17-error-contracts.md), [configuration](19-configuration-contracts.md) | API composition/operations |
+| NFR-003–004, NFR-009–010; SEC-004; US-007–008 | Monolith/PostgreSQL/async; [ADR-001](../adr/ADR-001-modular-monolith.md), [ADR-004](../adr/ADR-004-postgresql.md), [ADR-005](../adr/ADR-005-redis-celery.md) | [Logical data](02-logical-data-model.md), [tenant](05-tenant-rbac-contracts.md), [outbox](15-event-outbox-contracts.md) | All backend modules; `audit` outbox port |
+| NFR-011–012; SEC-013–014; US-032 | Observability/self-hosting; [ADR-016](../adr/ADR-016-observability-stack.md) | [Configuration](19-configuration-contracts.md), [provider](12-provider-contracts.md), [error](17-error-contracts.md) | Operations/configuration adapters |
+| NFR-016; SEC-006, SEC-008–009; US-018–020 | Versioned docs/API/UI validation; [ADR-002](../adr/ADR-002-fastapi-python.md), [ADR-003](../adr/ADR-003-nextjs-typescript.md) | [API naming/pagination](18-api-catalog.md), [tenant](05-tenant-rbac-contracts.md), [error](17-error-contracts.md) | API transport and later frontend |
+
+## Design-level acceptance vectors
+
+These are specification examples for future tests, not executed tests. Inputs are symbolic, with no real credential or sensitive prompt. A failure result cannot be silently substituted with a successful empty-finding result.
+
+| Vector | Expected observable contract | Primary source |
+|---|---|---|
+| Register → login → `GET /auth/session` → logout | Session cookie has opaque credential, CSRF is issued after session bootstrap, logout revokes; subsequent session request is unauthenticated. | [Auth](04-auth-session-contracts.md) |
+| Org A member presents Org B application ID | Same `not_found_or_hidden` envelope as absent ID; no cross-tenant record or count leaks. | [Tenancy](05-tenant-rbac-contracts.md), [errors](17-error-contracts.md) |
+| Valid `rz_prd_…` key / revoked key | Valid key derives its exact environment; revoked key fails authentication without displaying its secret. | [Key](06-application-api-key-contracts.md) |
+| Analyze with no provider configured | Deterministic inspection still returns findings/risk/policy; no AI provider dependency. | [Analysis](07-security-analysis-contracts.md) |
+| Obvious prompt injection | `prompt_injection.*` finding, versioned contribution, risk score and explanation reconstruct per profile. | [Detector](08-detector-finding-contracts.md), [risk](09-risk-scoring-specification.md) |
+| Valid inspection, no policy match | `action=allow`, null match, `no_policy_matched` rationale, findings/risk retained. | [Policy](10-policy-contracts.md) |
+| Matching block policy | Stable `policy_block` in Gateway, input not forwarded or output not returned; event/incident behavior follows policy. | [Gateway](13-gateway-api-contract.md) |
+| Matching require-review policy | Analyze returns action; Gateway returns `review_required` on either phase and never waits or forwards/returns unchecked content. | [Policy](10-policy-contracts.md), [gateway](13-gateway-api-contract.md) |
+| Provider timeout after approved input | `provider_timeout`; no automatic completion retry and no raw provider error body. | [Provider](12-provider-contracts.md), [errors](17-error-contracts.md) |
+| Approved output redaction | Redacted text alone is returned; original response is absent from default persisted event. | [Gateway](13-gateway-api-contract.md), [privacy](14-privacy-retention-contracts.md) |
+| Signed webhook altered or >5 minutes old | Receiver-side verification fails; duplicate event ID remains idempotent; no raw prompt appears in payload. | [Webhook](16-webhook-notification-contracts.md) |
+| Security retention cleanup at day 30 | Tenant-scoped security content/event and derived sensitive data are deleted; separate append-only audit remains until its 365-day retention. | [Privacy](14-privacy-retention-contracts.md), [audit](11-incident-audit-contracts.md) |
+
+## Coverage rule
+
+The matrix covers every FR-001–056, NFR-001–016, SEC-001–025 and US-001–032 explicitly or through inclusive ranges. This is contract traceability only; Phase 4 must add implementation/test evidence without modifying the authoritative requirement IDs.
