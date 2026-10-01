@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, RenzaiApiError } from "@/shared/api/client";
 import { SecurityConsole } from "@/features/security/security-console";
+import { IncidentConsole } from "@/features/incidents/incident-console";
 
 type Membership = { organization_id: string; membership_id: string; role: string };
 type Session = {
@@ -198,7 +199,7 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
       <header className="topbar">
         <div>
           <span className="logo">Renzai</span>
-          <span className="phase">Provider Gateway · Phase 8</span>
+          <span className="phase">Incident Management · Phase 9</span>
         </div>
         <div className="account">
           <span>{session.user.email}</span>
@@ -339,6 +340,14 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
           {active && (
             <SecurityConsole
               key={active.organization_id}
+              organizationId={active.organization_id}
+              role={active.role}
+              csrfToken={session.csrf_token}
+            />
+          )}
+          {active && (
+            <IncidentConsole
+              key={`incidents-${active.organization_id}`}
               organizationId={active.organization_id}
               role={active.role}
               csrfToken={session.csrf_token}

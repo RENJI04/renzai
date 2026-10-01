@@ -22,6 +22,9 @@ from renzai.modules.api_keys.models import ApplicationApiKey
 from renzai.modules.applications.models import Application
 from renzai.modules.environments.models import Environment
 from renzai.modules.gateway.rate_limit import RedisGatewayRateLimiter
+from renzai.modules.incidents.application import IncidentService
+from renzai.modules.incidents.domain import IncidentStatus
+from renzai.modules.incidents.models import Incident, IncidentSecurityEvent
 from renzai.modules.memberships.domain import MembershipRole
 from renzai.modules.memberships.models import Membership
 from renzai.modules.organizations.application import OrganizationService
@@ -547,6 +550,171 @@ async def test_postgresql_phase8_provider_constraints() -> None:
                 delete(Organization).where(
                     Organization.organization_id.in_([organization_id, other_organization_id])
                 )
+            )
+            await cleanup.commit()
+        await database.close()
+
+
+@pytest.mark.integration
+async def test_postgresql_phase9_incident_deduplication_and_status_concurrency() -> None:
+    database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("set RENZAI_TEST_DATABASE_URL to run PostgreSQL Phase 9 concurrency")
+    if not database_url.startswith("postgresql+asyncpg://"):
+        pytest.fail("RENZAI_TEST_DATABASE_URL must be an asyncpg PostgreSQL URL")
+    database = Database(DatabaseConfig(url=database_url, pool_size=6, max_overflow=0))
+    organization_id = new_uuid7()
+    application_id = new_uuid7()
+    environment_id = new_uuid7()
+    event_id = new_uuid7()
+    analysis_id = new_uuid7()
+    user_id = new_uuid7()
+    membership_id = new_uuid7()
+    try:
+        async with database.session() as setup:
+            setup.add_all(
+                [
+                    User(
+                        user_id=user_id,
+                        email=f"phase9-{user_id}@example.test",
+                        normalized_email=f"phase9-{user_id}@example.test",
+                    ),
+                    Organization(
+                        organization_id=organization_id,
+                        name="Phase 9 incident concurrency",
+                        slug=f"phase9-{str(organization_id)[:12]}",
+                        settings={"audit_retention_days": 365},
+                    ),
+                ]
+            )
+            await setup.flush()
+            setup.add_all(
+                [
+                    Membership(
+                        membership_id=membership_id,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                        role="security_analyst",
+                        status="active",
+                    ),
+                    Application(
+                        application_id=application_id,
+                        organization_id=organization_id,
+                        name="Incident Gateway",
+                        name_key="incident gateway",
+                    ),
+                ]
+            )
+            await setup.flush()
+            setup.add(
+                Environment(
+                    environment_id=environment_id,
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    type="production",
+                )
+            )
+            await setup.flush()
+            setup.add(
+                SecurityEvent(
+                    event_id=event_id,
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    environment_id=environment_id,
+                    direction="input",
+                    source="gateway",
+                    correlation_id=f"phase9-{event_id}",
+                    privacy_mode="METADATA_ONLY",
+                    content=None,
+                    content_bytes=12,
+                    retention_days=30,
+                    action="block",
+                    risk_score=84,
+                    risk_severity="high",
+                )
+            )
+            await setup.flush()
+            setup.add(
+                AnalysisResult(
+                    analysis_id=analysis_id,
+                    event_id=event_id,
+                    normalization_version="1.0.0",
+                    ruleset_version="1.0.0",
+                    status="completed",
+                    finding_count=0,
+                    normalization_ms=1,
+                    detector_ms=1,
+                    total_ms=2,
+                    capabilities={},
+                    risk_score=84,
+                    risk_severity="high",
+                    risk_confidence=90,
+                    base_score=84,
+                    corroboration_bonus=0,
+                    critical_floor=0,
+                    action="block",
+                    risk_ms=0,
+                    policy_ms=0,
+                )
+            )
+            await setup.commit()
+
+        async def escalate(correlation_id: str) -> str:
+            async with database.session() as session:
+                incident = await IncidentService(session).create_from_analysis(
+                    organization_id, analysis_id, correlation_id
+                )
+                return str(incident.incident_id)
+
+        first_id, second_id = await asyncio.gather(escalate("race-a"), escalate("race-b"))
+        assert first_id == second_id
+        async with database.session() as verify:
+            incidents = list(
+                (
+                    await verify.execute(
+                        select(Incident).where(Incident.organization_id == organization_id)
+                    )
+                ).scalars()
+            )
+            assert len(incidents) == 1
+            incident_id = incidents[0].incident_id
+
+        async def transition(target: IncidentStatus) -> str:
+            async with database.session() as session:
+                actor = await session.get(Membership, membership_id)
+                user = await session.get(User, user_id)
+                assert actor is not None and user is not None
+                try:
+                    await IncidentService(session).transition(
+                        actor, user, incident_id, target, 1, None
+                    )
+                except RenzaiError as error:
+                    await session.rollback()
+                    return error.code
+                return "success"
+
+        outcomes = await asyncio.gather(
+            transition(IncidentStatus.INVESTIGATING), transition(IncidentStatus.RESOLVED)
+        )
+        assert sorted(outcomes) == ["conflict", "success"]
+        async with database.session() as retention:
+            await retention.execute(delete(SecurityEvent).where(SecurityEvent.event_id == event_id))
+            await retention.commit()
+        async with database.session() as retained:
+            assert await retained.get(Incident, incident_id) is not None
+            relation_count = await retained.scalar(
+                select(func.count())
+                .select_from(IncidentSecurityEvent)
+                .where(IncidentSecurityEvent.incident_id == incident_id)
+            )
+            assert relation_count == 0
+    finally:
+        async with database.session() as cleanup:
+            await cleanup.execute(
+                delete(Incident).where(Incident.organization_id == organization_id)
+            )
+            await cleanup.execute(
+                delete(Organization).where(Organization.organization_id == organization_id)
             )
             await cleanup.commit()
         await database.close()

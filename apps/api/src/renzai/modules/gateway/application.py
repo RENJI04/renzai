@@ -15,6 +15,7 @@ from renzai.modules.applications.models import Application
 from renzai.modules.environments.models import Environment
 from renzai.modules.gateway.domain import inspection_text, redact_messages
 from renzai.modules.gateway.models import GatewayProviderCall
+from renzai.modules.incidents.application import IncidentService
 from renzai.modules.providers.application import ProviderService
 from renzai.modules.providers.domain import (
     ProviderChatRequest,
@@ -99,6 +100,8 @@ class GatewayService:
         input_ms = (perf_counter_ns() - input_started) // 1_000_000
         input_action = str(input_analysis["action"])
         input_analysis_id = str(input_analysis["analysis_id"])
+        if input_action in {"block", "require_review"}:
+            await self._create_incident(context, UUID(input_analysis_id))
         if input_action == "block":
             raise GatewayPolicyBlock("input", input_analysis_id)
         if input_action == "require_review":
@@ -205,6 +208,20 @@ class GatewayService:
         output_ms = (perf_counter_ns() - output_started) // 1_000_000
         output_action = str(output_analysis["action"])
         output_analysis_id = str(output_analysis["analysis_id"])
+        if output_action in {"block", "require_review"}:
+            try:
+                await self._create_incident(context, UUID(output_analysis_id))
+            except GatewayInspectionFailure:
+                await self._record_call(
+                    runtime,
+                    UUID(input_analysis_id),
+                    UUID(output_analysis_id),
+                    context.correlation_id,
+                    provider_ms,
+                    2,
+                    "output_inspection_failure",
+                )
+                raise
         redacted: str | None = None
         if output_action == "redact":
             value = output_analysis.get("redacted_content")
@@ -252,6 +269,17 @@ class GatewayService:
                 "total_ms": input_ms + provider_ms + output_ms,
             },
         )
+
+    async def _create_incident(self, context: GatewayContext, analysis_id: UUID) -> None:
+        try:
+            await IncidentService(self.db).create_from_analysis(
+                context.organization_id,
+                analysis_id,
+                context.correlation_id,
+            )
+        except Exception as error:
+            await self.db.rollback()
+            raise GatewayInspectionFailure() from error
 
     async def _record_call(
         self,

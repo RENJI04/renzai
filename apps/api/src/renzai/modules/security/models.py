@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -49,6 +50,7 @@ class SecurityEvent(Base):
             "risk_score IS NULL OR risk_score BETWEEN 0 AND 100",
             name="ck_security_events_risk_score",
         ),
+        UniqueConstraint("event_id", "organization_id", name="uq_security_events_id_organization"),
         Index(
             "ix_security_events_scope_time",
             "organization_id",
@@ -95,6 +97,7 @@ class AnalysisResult(Base):
             "action IN ('allow', 'flag', 'block', 'redact', 'require_review')",
             name="ck_analysis_results_action",
         ),
+        UniqueConstraint("analysis_id", "event_id", name="uq_analysis_results_id_event"),
     )
 
     analysis_id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid7)

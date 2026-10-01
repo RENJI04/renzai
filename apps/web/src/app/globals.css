@@ -372,6 +372,120 @@ summary {
 .empty {
   padding: 3rem 0;
 }
+.incident-filters,
+.incident-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.incident-layout {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 2fr);
+  gap: 1rem;
+}
+.incident-list {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+.incident-list button {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: #091522;
+  color: var(--foreground);
+  text-align: left;
+}
+.incident-list button.active {
+  border-color: var(--accent);
+}
+.incident-list small,
+.incident-detail p,
+.timeline span,
+.finding-list span {
+  color: var(--muted);
+}
+.severity {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.severity-critical {
+  color: #ff7a7a;
+}
+.severity-high {
+  color: #ffad66;
+}
+.severity-medium {
+  color: #f2d56b;
+}
+.severity-low {
+  color: #70d7b5;
+}
+.incident-detail {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: #091522;
+}
+.incident-detail header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.incident-detail h3 {
+  margin: 0.3rem 0;
+}
+.incident-facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+.incident-facts div {
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+}
+.incident-facts dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.incident-facts dd {
+  margin: 0.2rem 0 0;
+}
+.false-positive-note {
+  padding: 0.65rem;
+  border-left: 3px solid #f2d56b;
+}
+.finding-list,
+.timeline,
+.comment-list {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 0;
+}
+.finding-list div,
+.timeline li,
+.comment-list p {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+}
+.timeline li {
+  list-style: none;
+}
+.comment-form label {
+  display: grid;
+  gap: 0.4rem;
+}
+.comment-form textarea {
+  min-height: 6rem;
+}
 
 @media (max-width: 760px) {
   .topbar {
@@ -400,6 +514,12 @@ summary {
   .resource-grid,
   .risk-summary,
   .condition-row {
+    grid-template-columns: 1fr;
+  }
+  .incident-filters,
+  .incident-actions,
+  .incident-layout,
+  .incident-facts {
     grid-template-columns: 1fr;
   }
   .policy-list article,

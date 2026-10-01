@@ -42,6 +42,14 @@ class ConflictError(RenzaiError):
     code, message, status_code = "conflict", "The request conflicts with current state.", 409
 
 
+class InvalidTransitionError(RenzaiError):
+    code, message, status_code = (
+        "invalid_transition",
+        "The requested state transition is not allowed.",
+        409,
+    )
+
+
 class RateLimitError(RenzaiError):
     code, message, status_code = "rate_limit", "The request rate is too high.", 429
 

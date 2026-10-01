@@ -6,6 +6,12 @@ from renzai.modules.audit.models import AccountSecurityEvent, AuditEvent
 from renzai.modules.auth.models import EmailVerificationToken, PasswordResetToken, Session
 from renzai.modules.environments.models import Environment
 from renzai.modules.gateway.models import GatewayProviderCall
+from renzai.modules.incidents.models import (
+    Incident,
+    IncidentComment,
+    IncidentSecurityEvent,
+    IncidentTimelineEvent,
+)
 from renzai.modules.memberships.models import Invitation, Membership
 from renzai.modules.organizations.models import Organization
 from renzai.modules.policies.models import Policy, PolicyCondition, PolicyDecision, PolicyVersion
@@ -24,6 +30,10 @@ __all__ = [
     "Environment",
     "GatewayProviderCall",
     "Finding",
+    "Incident",
+    "IncidentComment",
+    "IncidentSecurityEvent",
+    "IncidentTimelineEvent",
     "Invitation",
     "Membership",
     "Organization",

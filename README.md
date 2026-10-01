@@ -2,7 +2,7 @@
 
 **Open-Source AI Security & Observability Platform**
 
-Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, and policy decisions for prompts and responses without requiring an AI provider. Renzai is currently at **Phase 8 provider and limited Gateway implementation**.
+Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, policy decisions, and incident investigation for prompts and responses without requiring an AI provider. Renzai is currently at **Phase 9 incident management implementation**.
 
 ## Goals and principles
 
@@ -14,22 +14,22 @@ Renzai is a self-hostable platform for analyzing and governing LLM-application t
 
 ## Roadmap
 
-Phases 1–3 define product, architecture, and contracts; Phase 4 establishes the runnable foundation; Phase 5 implements human identity and organization tenancy; Phase 6 adds deterministic detection; Phase 7 adds exact risk scoring and policy enforcement; and Phase 8 adds encrypted provider configuration plus a limited, non-streaming `POST /v1/chat/completions` Gateway. Incidents, notifications, webhooks, AI intelligence, analytics, SDKs, and advanced provider protocol features remain later work.
+Phases 1–3 define product, architecture, and contracts; Phase 4 establishes the runnable foundation; Phase 5 implements identity and tenancy; Phase 6 adds deterministic detection; Phase 7 adds risk and policy; Phase 8 adds encrypted provider configuration and the limited Gateway; and Phase 9 adds durable incident investigation. Notifications, webhooks, AI intelligence, analytics, SDKs, and advanced provider protocol features remain later work.
 
 ## Documentation
 
-The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), and [Phase 8](docs/phase-08/10-phase-08-review.md).
+The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), [Phase 8](docs/phase-08/10-phase-08-review.md), and [Phase 9](docs/phase-09/10-phase-09-review.md).
 
 ## Implemented platform boundary
 
-Phase 8 includes the prior deterministic boundary plus purpose-separated AES-GCM provider credentials, Owner/Admin provider management, remote HTTPS and explicit local targets, pinned-IP SSRF-safe outbound HTTP, separate Gateway rate limiting, strict request/response normalization, input/output enforcement, stable failures, and provider management UI. It does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, incidents, notifications, webhooks, approval workflows, analytics, SDKs, or AI intelligence.
+Phase 9 includes the prior deterministic/Gateway boundary plus tenant-scoped incidents, block/review escalation, manual incidents, lifecycle/assignment/comments/timeline, safe filtering and cursor pagination, privacy-aware linked evidence, optimistic concurrency, and an Incident Queue UI. It does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, notifications, webhooks, approval workflows, analytics, SDKs, or AI intelligence.
 
 ## Repository layout
 
-- `apps/api` — FastAPI identity/tenancy, deterministic analysis, provider, and limited Gateway backend.
-- `apps/web` — Next.js management console, Security Playground, policy UI, and provider configuration.
+- `apps/api` — FastAPI identity/tenancy, deterministic analysis, provider/Gateway, and incident backend.
+- `apps/web` — Next.js management console, Security Playground, policy/provider UI, and Incident Queue.
 - `workers` — JSON-only Celery bootstrap and diagnostic task.
-- `docs/phase-08` — provider/Gateway implementation, security, traceability, and review.
+- `docs/phase-09` — incident implementation, security, traceability, and review.
 - `docs/development` — local setup and command reference.
 
 ## Local development
