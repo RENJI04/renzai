@@ -2,7 +2,7 @@
 
 **Open-Source AI Security & Observability Platform**
 
-Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, policy decisions, incident investigation, and privacy-safe operational analytics for prompts and responses without requiring an AI provider. Renzai is currently at **Phase 10 dashboard and analytics implementation**.
+Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, policy decisions, incident investigation, privacy-safe operational analytics, and optional advisory AI incident intelligence. Renzai is currently at **Phase 11 AI intelligence implementation**.
 
 ## Goals and principles
 
@@ -14,22 +14,22 @@ Renzai is a self-hostable platform for analyzing and governing LLM-application t
 
 ## Roadmap
 
-Phases 1–3 define product, architecture, and contracts; Phase 4 establishes the runnable foundation; Phase 5 implements identity and tenancy; Phase 6 adds deterministic detection; Phase 7 adds risk and policy; Phase 8 adds encrypted provider configuration and the limited Gateway; Phase 9 adds durable incident investigation; and Phase 10 adds tenant-scoped operational dashboards and analytics. Notifications, webhooks, AI intelligence, SDKs, and advanced provider protocol features remain later work.
+Phases 1–3 define product, architecture, and contracts; Phases 4–10 implement the deterministic platform, Gateway, incidents, and analytics; Phase 11 adds optional asynchronous AI-generated incident summaries, explanations, mitigations, and validated policy drafts. Notifications, webhooks, SDKs, agents, and advanced provider protocol features remain later work.
 
 ## Documentation
 
-The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), [Phase 8](docs/phase-08/10-phase-08-review.md), [Phase 9](docs/phase-09/10-phase-09-review.md), and [Phase 10](docs/phase-10/10-phase-10-review.md).
+The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), [Phase 8](docs/phase-08/10-phase-08-review.md), [Phase 9](docs/phase-09/10-phase-09-review.md), [Phase 10](docs/phase-10/10-phase-10-review.md), and [Phase 11](docs/phase-11/10-phase-11-review.md).
 
 ## Implemented platform boundary
 
-Phase 10 includes the prior deterministic/Gateway/incident boundary plus completed-analysis metrics, Gateway outcome analytics, UTC activity series, risk/threat/action distributions, provider and incident panels, tenant-safe filters, and an accessible dashboard UI. It does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, notifications, webhooks, approval workflows, SDKs, or AI intelligence.
+Phase 11 includes the prior deterministic platform plus purpose-separated AI provider configuration, ID-only asynchronous jobs, privacy-approved incident context, strictly validated AI results, and a labelled Incident UI. AI remains advisory and optional; it cannot change findings, risk, policies, incidents, or Gateway decisions. Renzai still does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, notifications, webhooks, autonomous remediation, SDKs, or agents.
 
 ## Repository layout
 
-- `apps/api` — FastAPI identity/tenancy, deterministic analysis, provider/Gateway, incidents, and analytics backend.
+- `apps/api` — FastAPI identity/tenancy, deterministic analysis, provider/Gateway, incidents, analytics, and optional AI intelligence backend.
 - `apps/web` — Next.js management console, operational dashboard, Security Playground, policy/provider UI, and Incident Queue.
-- `workers` — JSON-only Celery bootstrap and diagnostic task.
-- `docs/phase-10` — dashboard metrics, query model, privacy, performance, traceability, and review.
+- `workers` — JSON-only Celery bootstrap, diagnostics, and ID-only AI intelligence task.
+- `docs/phase-11` — AI architecture, privacy, task contracts, security, traceability, and review.
 - `docs/development` — local setup and command reference.
 
 ## Local development

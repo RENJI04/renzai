@@ -19,6 +19,11 @@ from renzai.db.session import Database
 from renzai.infrastructure.crypto.application_keys import ApplicationKeyCrypto
 from renzai.infrastructure.crypto.identity import IdentityCrypto
 from renzai.infrastructure.redis.client import RedisClient
+from renzai.modules.ai_intelligence.models import (
+    AIIntelligenceConfiguration,
+    AIIntelligenceRequest,
+    AIIntelligenceResult,
+)
 from renzai.modules.analytics.application import AnalyticsService
 from renzai.modules.analytics.domain import AnalyticsWindow
 from renzai.modules.api_keys.models import ApplicationApiKey
@@ -38,6 +43,215 @@ from renzai.modules.providers.models import ProviderConfiguration
 from renzai.modules.security.models import AnalysisResult, Finding, SecurityEvent
 from renzai.modules.security.rate_limit import RedisAnalyzeRateLimiter
 from renzai.modules.users.models import User
+
+
+@pytest.mark.integration
+async def test_postgresql_phase11_ai_idempotency_tenant_and_cascade_constraints() -> None:
+    database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("set RENZAI_TEST_DATABASE_URL to run PostgreSQL Phase 11 integration")
+    database = Database(DatabaseConfig(url=database_url, pool_size=4, max_overflow=0))
+    user_id = new_uuid7()
+    organization_id = new_uuid7()
+    other_organization_id = new_uuid7()
+    incident_id = new_uuid7()
+    config_id = new_uuid7()
+    other_config_id = new_uuid7()
+    try:
+        async with database.session() as setup:
+            setup.add(
+                User(
+                    user_id=user_id,
+                    email=f"{user_id}@example.test",
+                    normalized_email=f"{user_id}@example.test",
+                )
+            )
+            setup.add_all(
+                [
+                    Organization(
+                        organization_id=organization_id,
+                        name="Phase 11 integration",
+                        slug=f"phase11-{str(organization_id)[:12]}",
+                        settings={"audit_retention_days": 365},
+                    ),
+                    Organization(
+                        organization_id=other_organization_id,
+                        name="Phase 11 other",
+                        slug=f"phase11-other-{str(other_organization_id)[:12]}",
+                        settings={"audit_retention_days": 365},
+                    ),
+                ]
+            )
+            await setup.flush()
+            setup.add(
+                Membership(
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    role="owner",
+                    status="active",
+                )
+            )
+            setup.add_all(
+                [
+                    Incident(
+                        incident_id=incident_id,
+                        organization_id=organization_id,
+                        status="open",
+                        severity="high",
+                        source="manual",
+                        title="Phase 11 integration",
+                        safe_summary="Safe metadata.",
+                        version=1,
+                    ),
+                    AIIntelligenceConfiguration(
+                        config_id=config_id,
+                        organization_id=organization_id,
+                        name="Integration AI",
+                        name_key="integration ai",
+                        kind="openai_compatible_remote",
+                        base_url="https://example.test/v1",
+                        model="integration-model",
+                        credential_ciphertext=b"synthetic-ciphertext",
+                        credential_key_id="integration-v1",
+                        status="active",
+                    ),
+                    AIIntelligenceConfiguration(
+                        config_id=other_config_id,
+                        organization_id=other_organization_id,
+                        name="Other integration AI",
+                        name_key="other integration ai",
+                        kind="openai_compatible_remote",
+                        base_url="https://example.test/v1",
+                        model="integration-model",
+                        status="active",
+                    ),
+                ]
+            )
+            await setup.commit()
+
+        async def enqueue(key: str) -> str:
+            async with database.session() as session:
+                session.add(
+                    AIIntelligenceRequest(
+                        organization_id=organization_id,
+                        incident_id=incident_id,
+                        config_id=config_id,
+                        requested_by_user_id=user_id,
+                        task_type="incident_summary",
+                        status="pending",
+                        context_mode="redacted",
+                        incident_version=1,
+                        idempotency_key=key,
+                    )
+                )
+                try:
+                    await session.commit()
+                except IntegrityError:
+                    await session.rollback()
+                    return "conflict"
+                return "success"
+
+        outcomes = await asyncio.gather(enqueue("phase11-a"), enqueue("phase11-b"))
+        assert outcomes.count("success") == 1
+        assert outcomes.count("conflict") == 1
+
+        async with database.session() as verify:
+            request = await verify.scalar(
+                select(AIIntelligenceRequest).where(
+                    AIIntelligenceRequest.organization_id == organization_id
+                )
+            )
+            assert request is not None
+            request.status = "completed"
+            await verify.commit()
+
+        async with database.session() as wrong_result_config:
+            wrong_result_config.add(
+                AIIntelligenceResult(
+                    organization_id=organization_id,
+                    request_id=request.request_id,
+                    config_id=other_config_id,
+                    model="integration-model",
+                    prompt_template_version="incident-summary-v1",
+                    input_context_version="1.0.0",
+                    output_schema_version="1.0.0",
+                    structured_payload={"summary": "Safe", "key_points": []},
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await wrong_result_config.commit()
+            await wrong_result_config.rollback()
+
+        async with database.session() as wrong_result_request:
+            wrong_result_request.add(
+                AIIntelligenceResult(
+                    organization_id=other_organization_id,
+                    request_id=request.request_id,
+                    config_id=other_config_id,
+                    model="integration-model",
+                    prompt_template_version="incident-summary-v1",
+                    input_context_version="1.0.0",
+                    output_schema_version="1.0.0",
+                    structured_payload={"summary": "Safe", "key_points": []},
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await wrong_result_request.commit()
+            await wrong_result_request.rollback()
+
+        async with database.session() as valid_result:
+            valid_result.add(
+                AIIntelligenceResult(
+                    organization_id=organization_id,
+                    request_id=request.request_id,
+                    config_id=config_id,
+                    model="integration-model",
+                    prompt_template_version="incident-summary-v1",
+                    input_context_version="1.0.0",
+                    output_schema_version="1.0.0",
+                    structured_payload={"summary": "Safe", "key_points": []},
+                )
+            )
+            await valid_result.commit()
+
+        async with database.session() as wrong_tenant:
+            wrong_tenant.add(
+                AIIntelligenceRequest(
+                    organization_id=other_organization_id,
+                    incident_id=incident_id,
+                    config_id=config_id,
+                    requested_by_user_id=user_id,
+                    task_type="attack_explanation",
+                    status="pending",
+                    context_mode="metadata_only",
+                    incident_version=1,
+                    idempotency_key="phase11-wrong-tenant",
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await wrong_tenant.commit()
+            await wrong_tenant.rollback()
+
+        async with database.session() as cascade:
+            await cascade.execute(delete(Incident).where(Incident.incident_id == incident_id))
+            await cascade.commit()
+            assert (
+                await cascade.scalar(select(func.count()).select_from(AIIntelligenceRequest))
+            ) == 0
+            assert (
+                await cascade.scalar(select(func.count()).select_from(AIIntelligenceResult))
+            ) == 0
+            assert await cascade.get(AIIntelligenceConfiguration, config_id) is not None
+    finally:
+        async with database.session() as cleanup:
+            await cleanup.execute(
+                delete(Organization).where(
+                    Organization.organization_id.in_([organization_id, other_organization_id])
+                )
+            )
+            await cleanup.execute(delete(User).where(User.user_id == user_id))
+            await cleanup.commit()
+        await database.close()
 
 
 @pytest.mark.integration

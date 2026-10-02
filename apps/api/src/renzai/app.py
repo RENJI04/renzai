@@ -1,4 +1,4 @@
-"""FastAPI application factory through the Phase 8 provider/Gateway boundary."""
+"""FastAPI application factory through the Phase 11 optional intelligence boundary."""
 
 from __future__ import annotations
 
@@ -70,10 +70,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Renzai API",
-        version="0.0.0-phase-8",
+        version="0.0.0-phase-11",
         description=(
             "Renzai identity, deterministic security analysis, provider management, "
-            "and limited non-streaming chat Gateway API."
+            "limited non-streaming chat Gateway, incidents, analytics, and optional "
+            "AI intelligence."
         ),
         docs_url="/docs" if resolved_settings.app.expose_docs else None,
         redoc_url=None,

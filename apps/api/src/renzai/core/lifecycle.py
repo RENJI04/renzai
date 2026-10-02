@@ -6,9 +6,12 @@ from dataclasses import dataclass
 
 from renzai.core.config import Settings
 from renzai.db.session import Database
+from renzai.infrastructure.celery.ai_dispatcher import AITaskDispatcher
+from renzai.infrastructure.crypto.ai_credentials import AICredentialKeyRing
 from renzai.infrastructure.crypto.application_keys import ApplicationKeyCrypto
 from renzai.infrastructure.crypto.identity import IdentityCrypto
 from renzai.infrastructure.crypto.provider_credentials import ProviderCredentialKeyRing
+from renzai.infrastructure.http.ai_openai_compatible import OpenAICompatibleAIIntelligenceProvider
 from renzai.infrastructure.http.openai_compatible import OpenAICompatibleProvider
 from renzai.infrastructure.http.outbound import OutboundTargetGuard, PinnedHttpClient
 from renzai.infrastructure.redis.client import RedisClient
@@ -25,8 +28,11 @@ class RuntimeDependencies:
     identity_crypto: IdentityCrypto
     application_key_crypto: ApplicationKeyCrypto
     provider_credential_key_ring: ProviderCredentialKeyRing
+    ai_credential_key_ring: AICredentialKeyRing
     outbound_target_guard: OutboundTargetGuard
     chat_provider: OpenAICompatibleProvider
+    ai_intelligence_provider: OpenAICompatibleAIIntelligenceProvider
+    ai_task_dispatcher: AITaskDispatcher
     auth_rate_limiter: InMemoryAuthRateLimiter | RedisAuthRateLimiter
     analyze_rate_limiter: InMemoryAnalyzeRateLimiter | RedisAnalyzeRateLimiter
     gateway_rate_limiter: InMemoryGatewayRateLimiter | RedisGatewayRateLimiter
@@ -46,6 +52,9 @@ class RuntimeDependencies:
 def build_runtime_dependencies(settings: Settings) -> RuntimeDependencies:
     redis = RedisClient(settings.redis)
     provider_key_ring = ProviderCredentialKeyRing(
+        settings.provider_crypto.active_key_id, settings.provider_crypto.keys
+    )
+    ai_key_ring = AICredentialKeyRing(
         settings.provider_crypto.active_key_id, settings.provider_crypto.keys
     )
     outbound_guard = OutboundTargetGuard(settings.outbound_network.trusted_local_provider_hosts)
@@ -90,8 +99,15 @@ def build_runtime_dependencies(settings: Settings) -> RuntimeDependencies:
             settings.application_keys.verifier_key_id,
         ),
         provider_credential_key_ring=provider_key_ring,
+        ai_credential_key_ring=ai_key_ring,
         outbound_target_guard=outbound_guard,
         chat_provider=OpenAICompatibleProvider(PinnedHttpClient(outbound_guard), provider_key_ring),
+        ai_intelligence_provider=OpenAICompatibleAIIntelligenceProvider(
+            PinnedHttpClient(outbound_guard), ai_key_ring
+        ),
+        ai_task_dispatcher=AITaskDispatcher(
+            settings.redis.url, eager=settings.celery.task_always_eager
+        ),
         auth_rate_limiter=limiter,
         analyze_rate_limiter=analyze_limiter,
         gateway_rate_limiter=gateway_limiter,

@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, RenzaiApiError } from "@/shared/api/client";
+import { AIIntelligencePanel } from "./ai-intelligence-panel";
 
 type Status = "open" | "investigating" | "resolved" | "ignored" | "false_positive";
 type Severity = "low" | "medium" | "high" | "critical";
@@ -440,7 +441,7 @@ export function IncidentConsole({
             </p>
 
             <section>
-              <h4>Linked analysis</h4>
+              <h4>Deterministic Security Evidence</h4>
               {detail.data.analysis?.state === "content_no_longer_retained" ? (
                 <p className="muted">
                   Content no longer retained. Incident metadata remains available.
@@ -494,6 +495,13 @@ export function IncidentConsole({
                 </ul>
               )}
             </section>
+
+            <AIIntelligencePanel
+              organizationId={organizationId}
+              incidentId={detail.data.incident_id}
+              role={role}
+              csrfToken={csrfToken}
+            />
 
             <section>
               <h4>Timeline</h4>

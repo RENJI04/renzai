@@ -665,3 +665,43 @@ summary {
     flex-direction: column;
   }
 }
+
+.ai-intelligence {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 0.9rem;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.ai-intelligence > header,
+.ai-results article > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ai-label {
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.ai-actions,
+.ai-results {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.ai-actions {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.ai-results article {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}

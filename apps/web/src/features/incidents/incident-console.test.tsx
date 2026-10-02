@@ -87,6 +87,8 @@ describe("incident console", () => {
         return jsonResponse({
           items: [{ user_id: "user-1", email: "owner@example.com", role: "owner" }],
         });
+      if (path.endsWith("/ai-providers")) return jsonResponse({ items: [] });
+      if (path.endsWith("/incidents/incident-1/ai-analysis")) return jsonResponse({ items: [] });
       if (path.includes("/incidents/incident-1/") && method !== "GET") return jsonResponse(detail);
       if (path.endsWith("/incidents/incident-1")) return jsonResponse(detail);
       if (path.includes("/incidents?"))
@@ -103,6 +105,10 @@ describe("incident console", () => {
     expect(screen.getByText(/Content not retained under REDACTED/)).toBeVisible();
     expect(screen.getByText(/Risk explanation: base 84/)).toBeVisible();
     expect(screen.getByText(/Event event-1 · Analysis analysis-1/)).toBeVisible();
+    expect(screen.getByText("Deterministic Security Evidence")).toBeVisible();
+    expect(
+      await screen.findByText(/AI intelligence is optional and is not configured/),
+    ).toBeVisible();
 
     fireEvent.change(screen.getByLabelText("Incident status filter"), {
       target: { value: "open" },
@@ -173,6 +179,8 @@ describe("incident console", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);
       if (path.endsWith("/applications")) return jsonResponse({ items: [] });
+      if (path.endsWith("/ai-providers")) return jsonResponse({ items: [] });
+      if (path.endsWith("/incidents/incident-1/ai-analysis")) return jsonResponse({ items: [] });
       if (path.endsWith("/incidents/incident-1"))
         return jsonResponse({ ...detail, analysis: { state: "content_no_longer_retained" } });
       if (path.includes("/incidents?"))
@@ -193,6 +201,9 @@ describe("incident console", () => {
       const path = String(input);
       requests.push(path);
       if (path.endsWith("/applications")) return jsonResponse({ items: [] });
+      if (path.endsWith("/ai-providers")) return jsonResponse({ items: [] });
+      if (path.endsWith("/incidents/incident-1/ai-analysis")) return jsonResponse({ items: [] });
+      if (path.endsWith("/incidents/incident-2/ai-analysis")) return jsonResponse({ items: [] });
       if (path.endsWith("/incidents/incident-1")) return jsonResponse(detail);
       if (path.endsWith("/incidents/incident-2"))
         return jsonResponse({ ...detail, incident_id: "incident-2", title: "Second incident" });

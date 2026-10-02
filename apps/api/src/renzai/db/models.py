@@ -1,5 +1,10 @@
 """Import all current models so Alembic sees module-owned metadata."""
 
+from renzai.modules.ai_intelligence.models import (
+    AIIntelligenceConfiguration,
+    AIIntelligenceRequest,
+    AIIntelligenceResult,
+)
 from renzai.modules.api_keys.models import ApplicationApiKey
 from renzai.modules.applications.models import Application
 from renzai.modules.audit.models import AccountSecurityEvent, AuditEvent
@@ -22,6 +27,9 @@ from renzai.modules.users.models import PasswordCredential, User
 
 __all__ = [
     "AccountSecurityEvent",
+    "AIIntelligenceConfiguration",
+    "AIIntelligenceRequest",
+    "AIIntelligenceResult",
     "AuditEvent",
     "AnalysisResult",
     "Application",
