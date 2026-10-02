@@ -58,6 +58,7 @@ class SecurityEvent(Base):
             "environment_id",
             "occurred_at",
         ),
+        Index("ix_security_events_org_time", "organization_id", "occurred_at"),
     )
 
     event_id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid7)

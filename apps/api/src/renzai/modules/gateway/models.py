@@ -49,6 +49,13 @@ class GatewayProviderCall(Base):
             "environment_id",
             "created_at",
         ),
+        Index("ix_gateway_calls_org_time", "organization_id", "created_at"),
+        Index(
+            "ix_gateway_calls_org_provider_time",
+            "organization_id",
+            "provider_id",
+            "created_at",
+        ),
     )
 
     gateway_call_id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid7)

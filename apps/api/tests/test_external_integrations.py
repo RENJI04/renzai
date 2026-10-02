@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -18,9 +19,12 @@ from renzai.db.session import Database
 from renzai.infrastructure.crypto.application_keys import ApplicationKeyCrypto
 from renzai.infrastructure.crypto.identity import IdentityCrypto
 from renzai.infrastructure.redis.client import RedisClient
+from renzai.modules.analytics.application import AnalyticsService
+from renzai.modules.analytics.domain import AnalyticsWindow
 from renzai.modules.api_keys.models import ApplicationApiKey
 from renzai.modules.applications.models import Application
 from renzai.modules.environments.models import Environment
+from renzai.modules.gateway.models import GatewayProviderCall
 from renzai.modules.gateway.rate_limit import RedisGatewayRateLimiter
 from renzai.modules.incidents.application import IncidentService
 from renzai.modules.incidents.domain import IncidentStatus
@@ -715,6 +719,265 @@ async def test_postgresql_phase9_incident_deduplication_and_status_concurrency()
             )
             await cleanup.execute(
                 delete(Organization).where(Organization.organization_id == organization_id)
+            )
+            await cleanup.commit()
+        await database.close()
+
+
+@pytest.mark.integration
+async def test_postgresql_phase10_bucketing_distinct_counts_filters_and_tenant_scope() -> None:
+    database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("set RENZAI_TEST_DATABASE_URL to run PostgreSQL Phase 10 analytics")
+    if not database_url.startswith("postgresql+asyncpg://"):
+        pytest.fail("RENZAI_TEST_DATABASE_URL must be an asyncpg PostgreSQL URL")
+    database = Database(DatabaseConfig(url=database_url, pool_size=2, max_overflow=0))
+    organization_id = new_uuid7()
+    other_organization_id = new_uuid7()
+    application_id = new_uuid7()
+    environment_id = new_uuid7()
+    other_application_id = new_uuid7()
+    other_environment_id = new_uuid7()
+    provider_id = new_uuid7()
+    as_of = datetime(2026, 10, 1, 12, 30, tzinfo=UTC)
+    try:
+        async with database.session() as session:
+            session.add_all(
+                [
+                    Organization(
+                        organization_id=organization_id,
+                        name="Phase 10 analytics",
+                        slug=f"phase10-{str(organization_id)[:12]}",
+                        settings={"audit_retention_days": 365},
+                    ),
+                    Organization(
+                        organization_id=other_organization_id,
+                        name="Phase 10 other tenant",
+                        slug=f"phase10-other-{str(other_organization_id)[:12]}",
+                        settings={"audit_retention_days": 365},
+                    ),
+                ]
+            )
+            await session.flush()
+            session.add_all(
+                [
+                    Application(
+                        application_id=application_id,
+                        organization_id=organization_id,
+                        name="Analytics app",
+                        name_key="analytics app",
+                    ),
+                    Application(
+                        application_id=other_application_id,
+                        organization_id=other_organization_id,
+                        name="Other app",
+                        name_key="other app",
+                    ),
+                ]
+            )
+            await session.flush()
+            session.add_all(
+                [
+                    Environment(
+                        environment_id=environment_id,
+                        organization_id=organization_id,
+                        application_id=application_id,
+                        type="production",
+                    ),
+                    Environment(
+                        environment_id=other_environment_id,
+                        organization_id=other_organization_id,
+                        application_id=other_application_id,
+                        type="production",
+                    ),
+                ]
+            )
+            await session.flush()
+            session.add(
+                ProviderConfiguration(
+                    provider_id=provider_id,
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    environment_id=environment_id,
+                    kind="openai_compatible_local",
+                    name="Analytics provider",
+                    name_key="analytics provider",
+                    base_url="http://127.0.0.1:11434/v1",
+                    model="safe-model",
+                )
+            )
+            await session.flush()
+
+            async def add_analysis(
+                org_id: UUID,
+                app_id: UUID,
+                env_id: UUID,
+                occurred_at: datetime,
+                *,
+                findings: int,
+                source: str = "analyze",
+            ) -> AnalysisResult:
+                event = SecurityEvent(
+                    organization_id=org_id,
+                    application_id=app_id,
+                    environment_id=env_id,
+                    direction="input",
+                    source=source,
+                    occurred_at=occurred_at,
+                    correlation_id=f"phase10-{new_uuid7()}",
+                    privacy_mode="METADATA_ONLY",
+                    content=None,
+                    content_bytes=0,
+                    retention_days=30,
+                    action="block" if findings else "allow",
+                    risk_score=75 if findings else 0,
+                    risk_severity="high" if findings else "low",
+                )
+                session.add(event)
+                await session.flush()
+                analysis = AnalysisResult(
+                    event_id=event.event_id,
+                    normalization_version="1.0.0",
+                    ruleset_version="1.0.0",
+                    status="completed",
+                    finding_count=findings,
+                    normalization_ms=1,
+                    detector_ms=1,
+                    total_ms=2,
+                    capabilities={},
+                    risk_score=75 if findings else 0,
+                    risk_severity="high" if findings else "low",
+                    risk_confidence=90,
+                    base_score=75 if findings else 0,
+                    corroboration_bonus=0,
+                    critical_floor=0,
+                    action="block" if findings else "allow",
+                    risk_ms=0,
+                    policy_ms=0,
+                )
+                session.add(analysis)
+                await session.flush()
+                for index in range(findings):
+                    session.add(
+                        Finding(
+                            analysis_id=analysis.analysis_id,
+                            detector_id="phase10-detector",
+                            detector_version="1.0.0",
+                            ruleset_version="1.0.0",
+                            category="prompt_injection",
+                            direction="input",
+                            severity="high",
+                            confidence=90 + index,
+                            evidence={},
+                            safe_explanation="Safe aggregate metadata.",
+                            safe_metadata={},
+                        )
+                    )
+                return analysis
+
+            gateway_input = await add_analysis(
+                organization_id,
+                application_id,
+                environment_id,
+                as_of - timedelta(hours=2),
+                findings=2,
+                source="gateway",
+            )
+            gateway_output = await add_analysis(
+                organization_id,
+                application_id,
+                environment_id,
+                as_of - timedelta(hours=2),
+                findings=0,
+                source="gateway",
+            )
+            await add_analysis(
+                organization_id,
+                application_id,
+                environment_id,
+                as_of - timedelta(hours=1),
+                findings=1,
+            )
+            await add_analysis(
+                other_organization_id,
+                other_application_id,
+                other_environment_id,
+                as_of - timedelta(hours=1),
+                findings=1,
+            )
+            session.add(
+                GatewayProviderCall(
+                    organization_id=organization_id,
+                    application_id=application_id,
+                    environment_id=environment_id,
+                    provider_id=provider_id,
+                    input_analysis_id=gateway_input.analysis_id,
+                    output_analysis_id=gateway_output.analysis_id,
+                    correlation_id="phase10-postgresql",
+                    configured_model="safe-model",
+                    provider_latency_ms=20,
+                    status_class=2,
+                    outcome="completed",
+                    created_at=as_of - timedelta(hours=2),
+                )
+            )
+            await session.flush()
+            body = await AnalyticsService(session, as_of=as_of).dashboard(
+                organization_id,
+                window=AnalyticsWindow.HOURS_24,
+                application_id=application_id,
+                environment_id=environment_id,
+            )
+            assert body["summary"] == {
+                "analyses": 3,
+                "gateway_requests": 1,
+                "threats_detected": 2,
+                "blocked": 2,
+                "require_review": 0,
+                "redacted": 0,
+                "critical_analyses": 0,
+                "open_incidents": 0,
+                "threat_rate_numerator": 2,
+                "threat_rate_denominator": 3,
+                "threat_rate_percent": 66.67,
+            }
+            categories = body["threat_categories"]
+            assert isinstance(categories, list)
+            assert categories == [
+                {
+                    "category": "prompt_injection",
+                    "finding_count": 3,
+                    "affected_analyses": 2,
+                }
+            ]
+            activity = body["activity"]
+            assert isinstance(activity, list)
+            assert len(activity) == 24
+            assert (
+                sum(int(item["analysis_count"]) for item in activity if isinstance(item, dict)) == 3
+            )
+            gateway = await AnalyticsService(session, as_of=as_of).dashboard(
+                organization_id,
+                window=AnalyticsWindow.HOURS_24,
+                application_id=application_id,
+                environment_id=environment_id,
+                source=None,
+            )
+            assert gateway["providers"]
+            await session.commit()
+    finally:
+        async with database.session() as cleanup:
+            await cleanup.execute(
+                delete(GatewayProviderCall).where(
+                    GatewayProviderCall.organization_id.in_(
+                        [organization_id, other_organization_id]
+                    )
+                )
+            )
+            await cleanup.execute(
+                delete(Organization).where(
+                    Organization.organization_id.in_([organization_id, other_organization_id])
+                )
             )
             await cleanup.commit()
         await database.close()

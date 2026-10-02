@@ -90,6 +90,7 @@ class Incident(Base):
         ),
         CheckConstraint("version >= 1", name="ck_incidents_version"),
         Index("ix_incidents_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_incidents_org_created", "organization_id", "created_at"),
         Index("ix_incidents_org_severity_created", "organization_id", "severity", "created_at"),
         Index(
             "ix_incidents_org_assignee_created", "organization_id", "assignee_user_id", "created_at"

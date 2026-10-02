@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, RenzaiApiError } from "@/shared/api/client";
+import { DashboardConsole } from "@/features/analytics/dashboard-console";
 import { SecurityConsole } from "@/features/security/security-console";
 import { IncidentConsole } from "@/features/incidents/incident-console";
 
@@ -199,7 +200,7 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
       <header className="topbar">
         <div>
           <span className="logo">Renzai</span>
-          <span className="phase">Incident Management · Phase 9</span>
+          <span className="phase">Dashboard &amp; Analytics · Phase 10</span>
         </div>
         <div className="account">
           <span>{session.user.email}</span>
@@ -338,6 +339,12 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
             </section>
           )}
           {active && (
+            <DashboardConsole
+              key={`dashboard-${active.organization_id}`}
+              organizationId={active.organization_id}
+            />
+          )}
+          {active && (
             <SecurityConsole
               key={active.organization_id}
               organizationId={active.organization_id}
@@ -346,12 +353,14 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
             />
           )}
           {active && (
-            <IncidentConsole
-              key={`incidents-${active.organization_id}`}
-              organizationId={active.organization_id}
-              role={active.role}
-              csrfToken={session.csrf_token}
-            />
+            <div id="incident-queue">
+              <IncidentConsole
+                key={`incidents-${active.organization_id}`}
+                organizationId={active.organization_id}
+                role={active.role}
+                csrfToken={session.csrf_token}
+              />
+            </div>
           )}
           <section className="panel">
             <h2>Account security</h2>

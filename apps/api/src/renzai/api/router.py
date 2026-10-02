@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from renzai.api.analytics import router as analytics_router
 from renzai.api.analyze import router as analyze_router
 from renzai.api.applications import router as applications_router
 from renzai.api.auth import router as auth_router
@@ -14,6 +15,7 @@ from renzai.api.providers import router as providers_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health_router)
+api_router.include_router(analytics_router)
 api_router.include_router(incidents_router)
 api_router.include_router(auth_router)
 api_router.include_router(organizations_router)
