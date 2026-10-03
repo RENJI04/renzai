@@ -40,8 +40,13 @@ class AICredentialKeyRing:
             key_id: value.get_secret_value() if isinstance(value, SecretStr) else value
             for key_id, value in keys.items()
         }
-        if any(not key_id or len(key_id) > 80 for key_id in raw):
-            raise ValueError("AI credential key IDs must be bounded")
+        if any(
+            not key_id
+            or len(key_id) > 80
+            or any(ord(character) < 33 or ord(character) == 127 for character in key_id)
+            for key_id in raw
+        ):
+            raise ValueError("AI credential key IDs must be bounded visible strings")
         if any(len(value.encode("utf-8")) < 32 for value in raw.values()):
             raise ValueError("AI credential encryption roots must be at least 32 bytes")
         self.active_key_id = active_key_id

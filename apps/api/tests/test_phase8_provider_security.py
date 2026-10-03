@@ -10,8 +10,12 @@ from renzai.infrastructure.crypto.provider_credentials import (
     ProviderCredentialKeyRing,
     provider_credential_context,
 )
-from renzai.infrastructure.http.outbound import OutboundTargetGuard
-from renzai.modules.providers.domain import ProviderConfigurationFailure, normalize_completion
+from renzai.infrastructure.http.outbound import OutboundTargetGuard, PinnedHttpClient
+from renzai.modules.providers.domain import (
+    ProviderConfigurationFailure,
+    ProviderFailure,
+    normalize_completion,
+)
 
 
 def test_provider_credential_encryption_is_authenticated_unique_and_rotatable() -> None:
@@ -148,3 +152,16 @@ def test_provider_response_normalization_is_strict_and_allowlisted() -> None:
         ],
         "usage": {"prompt_tokens": 2, "completion_tokens": 1, "total_tokens": 3},
     }
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\n",
+        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 1\r\n\r\n",
+        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip\r\n\r\n",
+    ],
+)
+def test_provider_response_rejects_ambiguous_framing(headers: bytes) -> None:
+    with pytest.raises(ProviderFailure, match="header|framing"):
+        PinnedHttpClient._parse_headers(headers)

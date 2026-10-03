@@ -5,11 +5,26 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import re
 import secrets
 from dataclasses import dataclass
 
-from argon2 import PasswordHasher
+from argon2 import Parameters, PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
+from argon2.low_level import Type
+
+ARGON2_VERSION = 19
+ARGON2_TIME_COST = 3
+ARGON2_MEMORY_COST_KIB = 65_536
+ARGON2_PARALLELISM = 4
+ARGON2_HASH_LENGTH = 32
+ARGON2_SALT_LENGTH = 16
+_LOOKUP_LENGTH = 22
+_SECRET_LENGTH = 43
+_CREDENTIAL_PATTERN = re.compile(
+    rf"\A([A-Za-z0-9_-]{{{_LOOKUP_LENGTH}}})\."
+    rf"([A-Za-z0-9_-]{{{_SECRET_LENGTH}}})\Z"
+)
 
 
 def _b64(data: bytes) -> str:
@@ -27,7 +42,19 @@ class IdentityCrypto:
     def __init__(self, master_key: str, key_id: str) -> None:
         self._master_key = master_key.encode("utf-8")
         self.key_id = key_id
-        self._passwords = PasswordHasher()
+        # Keep the password cost profile explicit so library-default changes cannot
+        # silently weaken or unexpectedly amplify authentication work.
+        self._passwords = PasswordHasher.from_parameters(
+            Parameters(
+                type=Type.ID,
+                version=ARGON2_VERSION,
+                salt_len=ARGON2_SALT_LENGTH,
+                hash_len=ARGON2_HASH_LENGTH,
+                time_cost=ARGON2_TIME_COST,
+                memory_cost=ARGON2_MEMORY_COST_KIB,
+                parallelism=ARGON2_PARALLELISM,
+            )
+        )
         self._dummy_password_hash = self._passwords.hash("not-a-user-password-000000")
 
     def hash_password(self, password: str) -> str:
@@ -66,8 +93,8 @@ class IdentityCrypto:
         if prefix and not public.startswith(prefix):
             return False
         value = public[len(prefix) :] if prefix else public
-        parts = value.split(".", 1)
-        if len(parts) != 2 or not hmac.compare_digest(parts[0], expected_lookup):
+        parts = self._parts(value)
+        if parts is None or not hmac.compare_digest(parts[0], expected_lookup):
             return False
         return hmac.compare_digest(self.verifier(purpose, parts[0], parts[1]), expected_verifier)
 
@@ -75,8 +102,8 @@ class IdentityCrypto:
         if prefix and not public.startswith(prefix):
             return None
         value = public[len(prefix) :] if prefix else public
-        parts = value.split(".", 1)
-        return parts[0] if len(parts) == 2 else None
+        parts = self._parts(value)
+        return parts[0] if parts is not None else None
 
     def verifier(self, purpose: str, lookup: str, secret: str) -> bytes:
         message = f"{purpose}\0{lookup}\0{secret}".encode()
@@ -100,3 +127,8 @@ class IdentityCrypto:
 
     def _purpose_key(self, purpose: str) -> bytes:
         return hmac.new(self._master_key, f"renzai:{purpose}:v1".encode(), hashlib.sha256).digest()
+
+    @staticmethod
+    def _parts(value: str) -> tuple[str, str] | None:
+        match = _CREDENTIAL_PATTERN.fullmatch(value)
+        return (match.group(1), match.group(2)) if match is not None else None

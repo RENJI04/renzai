@@ -44,11 +44,58 @@ def test_production_rejects_http_and_unsafe_override() -> None:
             database_url="postgresql+asyncpg://user:pass@db/renzai",
             feature_flags_unsafe_inspection_override=True,
         )
+    with pytest.raises(ValidationError):
+        Settings(
+            app_environment=Environment.PRODUCTION,
+            app_public_base_url="https://renzai.example",
+            app_debug=True,
+            database_url="postgresql+asyncpg://user:pass@db/renzai",
+            session_verifier_key="production-session-verifier-root-0001",
+            application_key_verifier_key="production-app-key-root-material-0001",
+            provider_credential_keys={"production-v1": "production-provider-root-material-00001"},
+            provider_credential_active_key_id="production-v1",
+            session_secure_cookie=True,
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            app_environment=Environment.PRODUCTION,
+            app_public_base_url="https://renzai.example",
+            app_expose_docs=True,
+            database_url="postgresql+asyncpg://user:pass@db/renzai",
+            session_verifier_key="production-session-verifier-root-0001",
+            application_key_verifier_key="production-app-key-root-material-0001",
+            provider_credential_keys={"production-v1": "production-provider-root-material-00001"},
+            provider_credential_active_key_id="production-v1",
+            session_secure_cookie=True,
+        )
 
 
 def test_credentialed_wildcard_cors_is_rejected() -> None:
     with pytest.raises(ValidationError):
         Settings(database_url="sqlite+aiosqlite://", cors_origins=("*",))
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://user:password@example.com",
+        "https://example.com/path",
+        "https://example.com?query=true",
+        "file:///tmp/renzai",
+    ],
+)
+def test_cors_origins_must_be_exact_http_origins(origin: str) -> None:
+    with pytest.raises(ValidationError):
+        Settings(database_url="sqlite+aiosqlite://", cors_origins=(origin,))
+
+
+@pytest.mark.parametrize("host", ["*", "0.0.0.0/0", "http://127.0.0.1", "bad host"])
+def test_local_provider_allowlist_requires_exact_hosts(host: str) -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            database_url="sqlite+aiosqlite://",
+            outbound_trusted_local_provider_hosts=(host,),
+        )
 
 
 def test_application_key_verifier_root_must_be_separate_and_secure_in_production() -> None:

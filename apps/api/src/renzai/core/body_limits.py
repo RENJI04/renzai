@@ -8,21 +8,32 @@ from renzai.core.errors import ValidationError, error_response
 from renzai.core.request_context import REQUEST_ID_HEADER, create_request_id
 
 
-class GatewayBodyLimitMiddleware:
-    """Buffer only the bounded Gateway body and reject oversized payloads early."""
+class RequestBodyLimitMiddleware:
+    """Bound mutating request bodies before framework JSON parsing or authentication work."""
 
-    def __init__(self, app: ASGIApp, max_body_bytes: int) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        default_max_body_bytes: int,
+        analyze_max_body_bytes: int,
+        gateway_max_body_bytes: int,
+    ) -> None:
         self.app = app
-        self.max_body_bytes = max_body_bytes
+        self.default_max_body_bytes = default_max_body_bytes
+        self.analyze_max_body_bytes = analyze_max_body_bytes
+        self.gateway_max_body_bytes = gateway_max_body_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (
-            scope["type"] != "http"
-            or scope.get("method") != "POST"
-            or scope.get("path") != "/v1/chat/completions"
-        ):
+        if scope["type"] != "http" or scope.get("method") not in {
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+        }:
             await self.app(scope, receive, send)
             return
+
+        maximum = self._maximum(scope.get("path", ""))
 
         header_values = [
             value for name, value in scope.get("headers", []) if name.lower() == b"content-length"
@@ -31,11 +42,7 @@ class GatewayBodyLimitMiddleware:
             declared = int(header_values[0]) if len(header_values) == 1 else None
         except (UnicodeDecodeError, ValueError):
             declared = -1
-        if (
-            len(header_values) > 1
-            or declared is not None
-            and (declared < 0 or declared > self.max_body_bytes)
-        ):
+        if len(header_values) > 1 or declared is not None and (declared < 0 or declared > maximum):
             await self._reject(scope, receive, send)
             return
 
@@ -47,7 +54,7 @@ class GatewayBodyLimitMiddleware:
             if message["type"] != "http.request":
                 continue
             body.extend(message.get("body", b""))
-            if len(body) > self.max_body_bytes:
+            if len(body) > maximum:
                 await self._reject(scope, receive, send)
                 return
             if not message.get("more_body", False):
@@ -63,6 +70,14 @@ class GatewayBodyLimitMiddleware:
             return {"type": "http.request", "body": bytes(body), "more_body": False}
 
         await self.app(scope, replay, send)
+
+    def _maximum(self, path: str) -> int:
+        maximum = self.default_max_body_bytes
+        if path == "/v1/chat/completions":
+            return min(maximum, self.gateway_max_body_bytes)
+        if path == "/api/v1/analyze" or path.endswith("/playground/analyze"):
+            return min(maximum, self.analyze_max_body_bytes)
+        return maximum
 
     @staticmethod
     async def _reject(scope: Scope, receive: Receive, send: Send) -> None:

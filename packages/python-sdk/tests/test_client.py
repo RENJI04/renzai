@@ -234,6 +234,70 @@ def test_session_writes_csrf_and_idempotency_without_retry() -> None:
     assert "opaque-session" not in client_repr and "csrf-safe" not in client_repr
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("api_key", "secret\tvalue"),
+        ("session_token", "session\x00value"),
+        ("csrf_token", "csrf value"),
+        ("base_url", "https://renzai.example\n.attacker.example"),
+    ],
+)
+def test_client_rejects_unsafe_credentials_and_base_urls_without_echoing(
+    field: str, value: str
+) -> None:
+    if field == "api_key":
+        with pytest.raises(ValueError) as caught:
+            Renzai(api_key=value, base_url="https://renzai.example")
+    elif field == "session_token":
+        with pytest.raises(ValueError) as caught:
+            RenzaiSession(
+                session_token=value,
+                csrf_token="csrf-safe",
+                base_url="https://renzai.example",
+            )
+    elif field == "csrf_token":
+        with pytest.raises(ValueError) as caught:
+            RenzaiSession(
+                session_token="opaque-session",
+                csrf_token=value,
+                base_url="https://renzai.example",
+            )
+    else:
+        with pytest.raises(ValueError) as caught:
+            RenzaiSession(
+                session_token="opaque-session",
+                csrf_token="csrf-safe",
+                base_url=value,
+            )
+    assert value not in str(caught.value)
+
+
+def test_client_rejects_unsafe_idempotency_key_before_network() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return response(request, 202, ai_payload())
+
+    with RenzaiSession(
+        session_token="opaque-session",
+        csrf_token="csrf-safe",
+        cookie_name="renzai_session",
+        base_url="https://renzai.example",
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        with pytest.raises(ValueError, match="idempotency_key"):
+            client.request_ai(
+                "org-1",
+                "incident-1",
+                task_type=AITaskType.INCIDENT_SUMMARY,
+                idempotency_key="unsafe\tkey",
+            )
+    assert calls == 0
+
+
 def test_pagination_detects_repeated_cursor() -> None:
     calls = 0
 

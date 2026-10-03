@@ -27,6 +27,15 @@ export type TransportOptions = {
 type TransportResponse = { data: unknown; response: Response };
 
 function normalizeBaseUrl(value: string): string {
+  const unsafeCharacter = Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return character.trim().length === 0 || codePoint < 32 || codePoint === 127;
+  });
+  if (value.length < 1 || value.length > 2048 || unsafeCharacter) {
+    throw new TypeError(
+      "baseUrl must be a bounded URL without whitespace or control characters",
+    );
+  }
   const parsed = new URL(value);
   if (
     !["http:", "https:"].includes(parsed.protocol) ||

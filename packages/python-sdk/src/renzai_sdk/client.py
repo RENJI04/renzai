@@ -47,15 +47,20 @@ def _segment(value: str) -> str:
     return quote(value, safe="")
 
 
+def _header_value(value: str, label: str, *, maximum: int) -> str:
+    if not 1 <= len(value) <= maximum or any(not "!" <= char <= "~" for char in value):
+        raise ValueError(f"{label} must be a bounded visible-ASCII value")
+    return value
+
+
 def _app_headers(api_key: str) -> dict[str, str]:
-    if not api_key or any(char in api_key for char in "\r\n"):
-        raise ValueError("api_key must be a non-empty header-safe value")
-    return {"Authorization": f"Bearer {api_key}"}
+    return {"Authorization": f"Bearer {_header_value(api_key, 'api_key', maximum=256)}"}
 
 
 def _session_headers(session_token: str, cookie_name: str) -> dict[str, str]:
-    if not session_token or any(char in session_token for char in "\r\n;"):
-        raise ValueError("session_token must be a non-empty cookie-safe value")
+    _header_value(session_token, "session_token", maximum=256)
+    if ";" in session_token:
+        raise ValueError("session_token must be a cookie-safe value")
     if cookie_name not in {"__Host-renzai_session", "renzai_session"}:
         raise ValueError("cookie_name must be a supported Renzai session cookie name")
     return {"Cookie": f"{cookie_name}={session_token}"}
@@ -344,9 +349,7 @@ class RenzaiSession:
         transport: httpx.BaseTransport | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
-        if not csrf_token or any(char in csrf_token for char in "\r\n"):
-            raise ValueError("csrf_token must be a non-empty header-safe value")
-        self._csrf_token = csrf_token
+        self._csrf_token = _header_value(csrf_token, "csrf_token", maximum=128)
         self._transport = SyncTransport(
             base_url=base_url,
             headers=_session_headers(session_token, cookie_name),
@@ -508,7 +511,11 @@ class RenzaiSession:
         disclosure_mode: DisclosureMode = DisclosureMode.REDACTED,
         idempotency_key: str | None = None,
     ) -> AIIntelligenceResult:
-        headers = {"Idempotency-Key": idempotency_key} if idempotency_key is not None else None
+        headers = (
+            {"Idempotency-Key": _header_value(idempotency_key, "idempotency_key", maximum=255)}
+            if idempotency_key is not None
+            else None
+        )
         response = self._write(
             "POST",
             f"/api/v1/organizations/{_segment(organization_id)}/incidents/"
@@ -571,9 +578,7 @@ class AsyncRenzaiSession:
         transport: httpx.AsyncBaseTransport | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
-        if not csrf_token or any(char in csrf_token for char in "\r\n"):
-            raise ValueError("csrf_token must be a non-empty header-safe value")
-        self._csrf_token = csrf_token
+        self._csrf_token = _header_value(csrf_token, "csrf_token", maximum=128)
         self._transport = AsyncTransport(
             base_url=base_url,
             headers=_session_headers(session_token, cookie_name),
@@ -736,7 +741,11 @@ class AsyncRenzaiSession:
         disclosure_mode: DisclosureMode = DisclosureMode.REDACTED,
         idempotency_key: str | None = None,
     ) -> AIIntelligenceResult:
-        headers = {"Idempotency-Key": idempotency_key} if idempotency_key is not None else None
+        headers = (
+            {"Idempotency-Key": _header_value(idempotency_key, "idempotency_key", maximum=255)}
+            if idempotency_key is not None
+            else None
+        )
         response = await self._write(
             "POST",
             f"/api/v1/organizations/{_segment(organization_id)}/incidents/"

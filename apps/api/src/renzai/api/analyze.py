@@ -41,7 +41,13 @@ class AnalyzeRequest(BaseModel):
     direction: Literal["input", "output"]
     content: str = Field(min_length=1)
     correlation_id: str | None = Field(default=None, min_length=1, max_length=128)
-    metadata: dict[str, str] | None = Field(default=None, max_length=16)
+    metadata: (
+        dict[
+            Annotated[str, Field(min_length=1, max_length=64)],
+            Annotated[str, Field(max_length=256)],
+        ]
+        | None
+    ) = Field(default=None, max_length=16)
 
 
 class PlaygroundRequest(AnalyzeRequest):

@@ -10,6 +10,8 @@ from starlette.types import ASGIApp
 
 from renzai.core.config import Environment, Settings
 
+_API_CSP = "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, settings: Settings) -> None:
@@ -24,6 +26,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault(
             "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
         )
+        if request.url.path.startswith(("/api/", "/v1/")):
+            response.headers.setdefault("Cache-Control", "no-store")
+            response.headers.setdefault("Content-Security-Policy", _API_CSP)
         if self._settings.app.environment is Environment.PRODUCTION:
             response.headers.setdefault(
                 "Strict-Transport-Security", "max-age=31536000; includeSubDomains"

@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import Response
 
 from renzai.api.router import api_router, root_router
-from renzai.core.body_limits import GatewayBodyLimitMiddleware
+from renzai.core.body_limits import RequestBodyLimitMiddleware
 from renzai.core.config import Settings
 from renzai.core.errors import register_error_handlers
 from renzai.core.lifecycle import build_runtime_dependencies
@@ -49,7 +49,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 
 def _safe_log_path(path: str) -> str:
-    parts = path.split("/")
+    clean = "".join(
+        character if ord(character) >= 32 and ord(character) != 127 else "?" for character in path
+    )
+    if len(clean) > 512:
+        clean = f"{clean[:512]}..."
+    parts = clean.split("/")
     if len(parts) >= 6 and parts[3] == "invitations" and parts[-1] == "accept":
         parts[4] = "[REDACTED]"
     return "/".join(parts)
@@ -84,7 +89,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = resolved_settings
     app.state.identity_idle_delta = timedelta(minutes=resolved_settings.session.idle_minutes)
     app.add_middleware(
-        GatewayBodyLimitMiddleware, max_body_bytes=resolved_settings.gateway.max_body_bytes
+        RequestBodyLimitMiddleware,
+        default_max_body_bytes=resolved_settings.app.max_json_body_bytes,
+        analyze_max_body_bytes=resolved_settings.analyze.max_body_bytes,
+        gateway_max_body_bytes=resolved_settings.gateway.max_body_bytes,
     )
     app.add_middleware(RequestContextMiddleware)
     configure_security_headers(app, resolved_settings)

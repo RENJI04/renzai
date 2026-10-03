@@ -15,7 +15,11 @@ from renzai.infrastructure.http.ai_openai_compatible import OpenAICompatibleAIIn
 from renzai.infrastructure.http.openai_compatible import OpenAICompatibleProvider
 from renzai.infrastructure.http.outbound import OutboundTargetGuard, PinnedHttpClient
 from renzai.infrastructure.redis.client import RedisClient
-from renzai.modules.auth.rate_limit import InMemoryAuthRateLimiter, RedisAuthRateLimiter
+from renzai.modules.auth.rate_limit import (
+    InMemoryAuthRateLimiter,
+    RedisAuthRateLimiter,
+    RedisSessionRateLimiter,
+)
 from renzai.modules.gateway.rate_limit import InMemoryGatewayRateLimiter, RedisGatewayRateLimiter
 from renzai.modules.security.rate_limit import InMemoryAnalyzeRateLimiter, RedisAnalyzeRateLimiter
 
@@ -34,6 +38,8 @@ class RuntimeDependencies:
     ai_intelligence_provider: OpenAICompatibleAIIntelligenceProvider
     ai_task_dispatcher: AITaskDispatcher
     auth_rate_limiter: InMemoryAuthRateLimiter | RedisAuthRateLimiter
+    password_reset_rate_limiter: InMemoryAuthRateLimiter | RedisAuthRateLimiter
+    session_rate_limiter: InMemoryAuthRateLimiter | RedisSessionRateLimiter
     analyze_rate_limiter: InMemoryAnalyzeRateLimiter | RedisAnalyzeRateLimiter
     gateway_rate_limiter: InMemoryGatewayRateLimiter | RedisGatewayRateLimiter
 
@@ -59,11 +65,21 @@ def build_runtime_dependencies(settings: Settings) -> RuntimeDependencies:
     )
     outbound_guard = OutboundTargetGuard(settings.outbound_network.trusted_local_provider_hosts)
     limiter: InMemoryAuthRateLimiter | RedisAuthRateLimiter
+    reset_limiter: InMemoryAuthRateLimiter | RedisAuthRateLimiter
+    session_limiter: InMemoryAuthRateLimiter | RedisSessionRateLimiter
     analyze_limiter: InMemoryAnalyzeRateLimiter | RedisAnalyzeRateLimiter
     gateway_limiter: InMemoryGatewayRateLimiter | RedisGatewayRateLimiter
     if settings.app.environment.value == "test":
         limiter = InMemoryAuthRateLimiter(
             settings.identity.rate_limit_attempts, settings.identity.rate_limit_window_seconds
+        )
+        reset_limiter = InMemoryAuthRateLimiter(
+            settings.identity.password_reset_rate_limit_attempts,
+            settings.identity.password_reset_rate_limit_window_seconds,
+        )
+        session_limiter = InMemoryAuthRateLimiter(
+            settings.session.rate_limit_requests,
+            settings.session.rate_limit_window_seconds,
         )
         analyze_limiter = InMemoryAnalyzeRateLimiter(
             settings.analyze.rate_limit_requests, settings.analyze.rate_limit_window_seconds
@@ -76,6 +92,16 @@ def build_runtime_dependencies(settings: Settings) -> RuntimeDependencies:
             redis,
             settings.identity.rate_limit_attempts,
             settings.identity.rate_limit_window_seconds,
+        )
+        reset_limiter = RedisAuthRateLimiter(
+            redis,
+            settings.identity.password_reset_rate_limit_attempts,
+            settings.identity.password_reset_rate_limit_window_seconds,
+        )
+        session_limiter = RedisSessionRateLimiter(
+            redis,
+            settings.session.rate_limit_requests,
+            settings.session.rate_limit_window_seconds,
         )
         analyze_limiter = RedisAnalyzeRateLimiter(
             redis,
@@ -109,6 +135,8 @@ def build_runtime_dependencies(settings: Settings) -> RuntimeDependencies:
             settings.redis.url, eager=settings.celery.task_always_eager
         ),
         auth_rate_limiter=limiter,
+        password_reset_rate_limiter=reset_limiter,
+        session_rate_limiter=session_limiter,
         analyze_rate_limiter=analyze_limiter,
         gateway_rate_limiter=gateway_limiter,
     )

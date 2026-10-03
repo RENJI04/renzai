@@ -420,6 +420,44 @@ describe("session client", () => {
     expect(client.toString()).not.toContain("opaque-session");
   });
 
+  it.each([
+    ["session token", { sessionToken: "session\u0000value" }],
+    ["CSRF token", { csrfToken: "csrf value" }],
+    ["base URL", { baseUrl: "https://renzai.example\n.attacker.example" }],
+  ])("rejects an unsafe %s without echoing it", (_label, override) => {
+    const options = {
+      sessionToken: "opaque-session",
+      csrfToken: "csrf-safe",
+      baseUrl: "https://renzai.example",
+      ...override,
+    };
+    const unsafeValue = Object.values(override)[0];
+    try {
+      new RenzaiSession(options);
+      throw new Error("constructor unexpectedly succeeded");
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(TypeError);
+      expect(String(error)).not.toContain(unsafeValue);
+    }
+  });
+
+  it("rejects unsafe caller idempotency before the network", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const client = new RenzaiSession({
+      sessionToken: "opaque-session",
+      csrfToken: "csrf-safe",
+      baseUrl: "https://renzai.example",
+      fetch,
+    });
+    await expect(
+      client.requestAI("org-1", "incident-1", {
+        taskType: "incident_summary",
+        idempotencyKey: "unsafe\tkey",
+      }),
+    ).rejects.toThrow("idempotencyKey");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("parses analytics and guards against repeated cursors", async () => {
     let calls = 0;
     const client = new RenzaiSession({

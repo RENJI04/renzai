@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,26 +28,30 @@ from renzai.modules.organizations.models import Organization
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-class CredentialsRequest(BaseModel):
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CredentialsRequest(StrictModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=256)
 
 
-class PasswordChangeRequest(BaseModel):
+class PasswordChangeRequest(StrictModel):
     current_password: str = Field(min_length=1, max_length=256)
     new_password: str = Field(min_length=1, max_length=256)
 
 
-class EmailRequest(BaseModel):
+class EmailRequest(StrictModel):
     email: str = Field(min_length=3, max_length=320)
 
 
-class ResetConfirmRequest(BaseModel):
+class ResetConfirmRequest(StrictModel):
     token: str = Field(min_length=20, max_length=256)
     password: str = Field(min_length=1, max_length=256)
 
 
-class TokenConfirmRequest(BaseModel):
+class TokenConfirmRequest(StrictModel):
     token: str = Field(min_length=20, max_length=256)
 
 
@@ -58,6 +62,7 @@ def _service(request: Request, db: AsyncSession, crypto: IdentityCrypto) -> Iden
         request.app.state.settings.session,
         request.app.state.settings.identity,
         request.app.state.dependencies.auth_rate_limiter,
+        request.app.state.dependencies.password_reset_rate_limiter,
     )
 
 
@@ -114,7 +119,10 @@ async def login(
 ) -> dict[str, object]:
     validate_same_origin(request)
     user, public = await _service(request, db, crypto).login(
-        body.email, body.password, _source(request)
+        body.email,
+        body.password,
+        _source(request),
+        request.cookies.get(session_cookie_name(request)),
     )
     _set_session_cookie(request, response, public)
     return {"user": _user_view(user)}
@@ -206,7 +214,9 @@ async def confirm_password_reset(
     crypto: Annotated[IdentityCrypto, Depends(get_crypto)],
 ) -> dict[str, bool]:
     validate_same_origin(request)
-    await _service(request, db, crypto).confirm_password_reset(body.token, body.password)
+    await _service(request, db, crypto).confirm_password_reset(
+        body.token, body.password, _source(request)
+    )
     return {"ok": True}
 
 

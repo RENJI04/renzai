@@ -271,7 +271,30 @@ class PinnedHttpClient:
             if ":" not in line:
                 raise ProviderFailure("provider response header is invalid")
             name, value = line.split(":", 1)
-            headers[name.strip().lower()] = value.strip()
+            normalized_name = name.strip().lower()
+            normalized_value = value.strip()
+            if (
+                not normalized_name
+                or any(
+                    character.isspace() or ord(character) < 33 or ord(character) == 127
+                    for character in normalized_name
+                )
+                or any(
+                    ord(character) < 32 or ord(character) == 127 for character in normalized_value
+                )
+            ):
+                raise ProviderFailure("provider response header is invalid")
+            if (
+                normalized_name in {"content-length", "transfer-encoding"}
+                and normalized_name in headers
+            ):
+                raise ProviderFailure("provider response framing header is duplicated")
+            headers[normalized_name] = normalized_value
+        if "content-length" in headers and "transfer-encoding" in headers:
+            raise ProviderFailure("provider response framing is ambiguous")
+        transfer_encoding = headers.get("transfer-encoding")
+        if transfer_encoding is not None and transfer_encoding.lower() != "chunked":
+            raise ProviderFailure("provider response framing is unsupported")
         return status, headers
 
     @staticmethod

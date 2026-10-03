@@ -34,6 +34,7 @@ class IdentityService:
         session_config: SessionConfig,
         identity_config: IdentityConfig,
         rate_limiter: AuthRateLimiter,
+        password_reset_rate_limiter: AuthRateLimiter,
         token_delivery: IdentityTokenDelivery | None = None,
     ) -> None:
         self.db = db
@@ -41,6 +42,7 @@ class IdentityService:
         self.session_config = session_config
         self.identity_config = identity_config
         self.rate_limiter = rate_limiter
+        self.password_reset_rate_limiter = password_reset_rate_limiter
         self.token_delivery = token_delivery
 
     async def register(self, email: str, password: str, source: str) -> tuple[User, str]:
@@ -64,7 +66,13 @@ class IdentityService:
             raise ConflictError(details={"fields": ["email"]}) from error
         return user, public
 
-    async def login(self, email: str, password: str, source: str) -> tuple[User, str]:
+    async def login(
+        self,
+        email: str,
+        password: str,
+        source: str,
+        presented_session: str | None = None,
+    ) -> tuple[User, str]:
         try:
             normalized = normalize_email(email)
         except ValidationError:
@@ -91,6 +99,7 @@ class IdentityService:
         if replacement:
             credential.password_hash = replacement
             credential.changed_at = utc_now()
+        await self._revoke_presented_session(presented_session)
         public = await self._new_session(user)
         self._event(user.user_id, "auth.login", "success")
         await self.db.commit()
@@ -125,6 +134,20 @@ class IdentityService:
         self._event(user.user_id, "auth.password.changed", "success")
         await self.db.commit()
         return public
+
+    async def _revoke_presented_session(self, public: str | None) -> None:
+        if not public:
+            return
+        lookup = self.crypto.lookup(public)
+        if lookup is None:
+            return
+        session = (
+            await self.db.execute(select(Session).where(Session.lookup == lookup).with_for_update())
+        ).scalar_one_or_none()
+        if session is not None and self.crypto.parse_and_verify(
+            public, "session", session.lookup, session.verifier
+        ):
+            session.revoked_at = utc_now()
 
     async def request_password_reset(self, email: str, source: str) -> str | None:
         try:
@@ -163,9 +186,10 @@ class IdentityService:
             await self.token_delivery.send_password_reset(user.email, public)
         return public
 
-    async def confirm_password_reset(self, token: str, password: str) -> None:
+    async def confirm_password_reset(self, token: str, password: str, source: str) -> None:
         validate_password(password)
         lookup = self.crypto.lookup(token, "rzrt_")
+        await self._rate_limit("password-reset-confirm", lookup or "invalid", source)
         if lookup is None:
             raise AuthenticationError()
         reset = (
@@ -293,7 +317,12 @@ class IdentityService:
 
     async def _rate_limit(self, operation: str, identity: str, source: str) -> None:
         key = self.crypto.rate_limit_identifier(f"{operation}:{identity}:{source}")
-        await self.rate_limiter.check(key)
+        limiter = (
+            self.password_reset_rate_limiter
+            if operation.startswith("password-reset")
+            else self.rate_limiter
+        )
+        await limiter.check(key)
 
     def _event(self, user_id: UUID | None, action: str, outcome: str) -> None:
         self.db.add(

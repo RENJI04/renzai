@@ -25,6 +25,10 @@ class TransportResponse:
 
 
 def normalize_base_url(value: str) -> str:
+    if not 1 <= len(value) <= 2048 or any(
+        char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value
+    ):
+        raise ValueError("base_url must be a bounded URL without whitespace or control characters")
     parsed = urlsplit(value)
     if (
         parsed.scheme not in {"http", "https"}

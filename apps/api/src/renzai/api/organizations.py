@@ -6,7 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,22 +30,26 @@ from renzai.modules.users.models import User
 router = APIRouter(tags=["organizations"])
 
 
-class OrganizationCreateRequest(BaseModel):
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class OrganizationCreateRequest(StrictModel):
     name: str = Field(min_length=2, max_length=120)
     slug: str = Field(min_length=3, max_length=63)
 
 
-class OrganizationUpdateRequest(BaseModel):
+class OrganizationUpdateRequest(StrictModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
     audit_retention_days: int | None = Field(default=None, ge=90, le=3650)
 
 
-class InvitationCreateRequest(BaseModel):
+class InvitationCreateRequest(StrictModel):
     email: str = Field(min_length=3, max_length=320)
     role: MembershipRole
 
 
-class MembershipUpdateRequest(BaseModel):
+class MembershipUpdateRequest(StrictModel):
     role: MembershipRole
 
 

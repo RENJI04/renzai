@@ -50,9 +50,13 @@ export type RenzaiSessionOptions = {
   logger?: (event: SafeLogEvent) => void;
 };
 
-function headerSafe(value: string, label: string): string {
-  if (!value || /[\r\n]/u.test(value))
-    throw new TypeError(`${label} must be a non-empty header-safe value`);
+function headerSafe(value: string, label: string, maximum: number): string {
+  if (
+    value.length < 1 ||
+    value.length > maximum ||
+    /[^\u0021-\u007e]/u.test(value)
+  )
+    throw new TypeError(`${label} must be a bounded visible-ASCII value`);
   return value;
 }
 
@@ -196,7 +200,7 @@ export class Renzai {
     this.#transport = new Transport({
       baseUrl: options.baseUrl,
       headers: {
-        Authorization: `Bearer ${headerSafe(options.apiKey, "apiKey")}`,
+        Authorization: `Bearer ${headerSafe(options.apiKey, "apiKey", 256)}`,
       },
       ...(options.timeoutMs === undefined
         ? {}
@@ -287,10 +291,10 @@ export class RenzaiSession {
       "logger",
     ]);
     const cookieName = options.cookieName ?? "__Host-renzai_session";
-    const sessionToken = headerSafe(options.sessionToken, "sessionToken");
+    const sessionToken = headerSafe(options.sessionToken, "sessionToken", 256);
     if (sessionToken.includes(";"))
       throw new TypeError("sessionToken must be cookie-safe");
-    this.#csrfToken = headerSafe(options.csrfToken, "csrfToken");
+    this.#csrfToken = headerSafe(options.csrfToken, "csrfToken", 128);
     this.#transport = new Transport({
       baseUrl: options.baseUrl,
       headers: { Cookie: `${cookieName}=${sessionToken}` },
@@ -481,7 +485,13 @@ export class RenzaiSession {
       options,
       input.idempotencyKey === undefined
         ? undefined
-        : { "Idempotency-Key": input.idempotencyKey },
+        : {
+            "Idempotency-Key": headerSafe(
+              input.idempotencyKey,
+              "idempotencyKey",
+              255,
+            ),
+          },
     );
     return parseAI(result.data, requestId(result.response.headers));
   }

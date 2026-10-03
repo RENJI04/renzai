@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from typing import Any
 
 import structlog
@@ -35,9 +35,19 @@ def redact_sensitive_fields(
         normalized = key.lower().replace("-", "_")
         if any(part in normalized for part in _SENSITIVE_FIELD_PARTS):
             event_dict[key] = "[REDACTED]"
-        elif isinstance(value, dict):
-            event_dict[key] = redact_sensitive_fields(_, __, value)
+        else:
+            event_dict[key] = _redact_nested(_, __, value)
     return event_dict
+
+
+def _redact_nested(_: Any, __: str, value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return redact_sensitive_fields(_, __, dict(value))
+    if isinstance(value, list):
+        return [_redact_nested(_, __, item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_nested(_, __, item) for item in value)
+    return value
 
 
 def add_request_context(

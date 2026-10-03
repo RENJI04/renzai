@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
@@ -27,6 +28,8 @@ from renzai.modules.memberships.domain import MembershipRole
 from renzai.modules.memberships.models import Membership
 from renzai.modules.users.domain import UserStatus
 from renzai.modules.users.models import User
+
+_CSRF_PATTERN = re.compile(r"\A[A-Za-z0-9_-]{43}\Z")
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,16 +80,31 @@ def session_cookie_name(request: Request) -> str:
 
 
 def validate_same_origin(request: Request) -> None:
-    origin = request.headers.get("origin")
-    referer = request.headers.get("referer")
+    origins = request.headers.getlist("origin")
+    referers = request.headers.getlist("referer")
+    if len(origins) > 1 or len(referers) > 1:
+        raise AuthorizationError(details={"reason": "origin"})
+    origin = origins[0] if origins else None
+    referer = referers[0] if referers else None
     expected = str(request.app.state.settings.app.public_base_url).rstrip("/")
     candidate = origin or referer
+    if candidate is not None and (
+        len(candidate) > 2048
+        or any(ord(character) < 32 or ord(character) == 127 for character in candidate)
+    ):
+        raise AuthorizationError(details={"reason": "origin"})
     if request.headers.get("sec-fetch-site", "").lower() == "cross-site":
         raise AuthorizationError(details={"reason": "origin"})
     if candidate is None:
         return
-    expected_url = urlsplit(expected)
-    candidate_url = urlsplit(candidate)
+    try:
+        expected_url = urlsplit(expected)
+        candidate_url = urlsplit(candidate)
+        candidate_port = candidate_url.port
+    except ValueError as error:
+        raise AuthorizationError(details={"reason": "origin"}) from error
+    if candidate_port is None and not candidate_url.hostname:
+        raise AuthorizationError(details={"reason": "origin"})
     if (candidate_url.scheme, candidate_url.netloc) != (expected_url.scheme, expected_url.netloc):
         raise AuthorizationError(details={"reason": "origin"})
 
@@ -96,6 +114,10 @@ async def current_principal(
     db: Annotated[AsyncSession, Depends(get_db)],
     crypto: Annotated[IdentityCrypto, Depends(get_crypto)],
 ) -> Principal:
+    cookie_headers = request.headers.getlist("cookie")
+    if len(cookie_headers) > 1 or any(len(value) > 4096 for value in cookie_headers):
+        request.state.clear_session_cookie = True
+        raise AuthenticationError()
     public = request.cookies.get(session_cookie_name(request))
     lookup = crypto.lookup(public or "")
     if not public or not lookup:
@@ -139,12 +161,17 @@ async def csrf_principal(
     crypto: Annotated[IdentityCrypto, Depends(get_crypto)],
 ) -> Principal:
     validate_same_origin(request)
-    supplied = request.headers.get("X-Renzai-CSRF", "")
-    if len(supplied) > 128:
+    supplied_values = request.headers.getlist("X-Renzai-CSRF")
+    supplied = supplied_values[0] if len(supplied_values) == 1 else ""
+    if not _CSRF_PATTERN.fullmatch(supplied):
         raise AuthorizationError(details={"reason": "csrf"})
     expected = crypto.csrf_verifier(principal.session.lookup, supplied)
     if not supplied or not hmac.compare_digest(expected, principal.session.csrf_verifier):
         raise AuthorizationError(details={"reason": "csrf"})
+    bucket = crypto.rate_limit_identifier(
+        f"session:{principal.user.user_id}:{principal.session.session_id}"
+    )
+    await request.app.state.dependencies.session_rate_limiter.check(bucket)
     return principal
 
 
@@ -155,6 +182,9 @@ async def logout_principal(
 ) -> Principal | None:
     """Authenticate a live logout, but let an already-cleared/revoked session converge."""
     validate_same_origin(request)
+    cookie_headers = request.headers.getlist("cookie")
+    if len(cookie_headers) > 1 or any(len(value) > 4096 for value in cookie_headers):
+        return None
     public = request.cookies.get(session_cookie_name(request))
     lookup = crypto.lookup(public or "")
     if not public or not lookup:
@@ -179,15 +209,14 @@ async def logout_principal(
         and crypto.parse_and_verify(public, "session", session.lookup, session.verifier)
     ):
         return None
-    supplied = request.headers.get("X-Renzai-CSRF", "")
-    if (
-        not supplied
-        or len(supplied) > 128
-        or not hmac.compare_digest(
-            crypto.csrf_verifier(session.lookup, supplied), session.csrf_verifier
-        )
+    supplied_values = request.headers.getlist("X-Renzai-CSRF")
+    supplied = supplied_values[0] if len(supplied_values) == 1 else ""
+    if not _CSRF_PATTERN.fullmatch(supplied) or not hmac.compare_digest(
+        crypto.csrf_verifier(session.lookup, supplied), session.csrf_verifier
     ):
         raise AuthorizationError(details={"reason": "csrf"})
+    bucket = crypto.rate_limit_identifier(f"session:{user.user_id}:{session.session_id}")
+    await request.app.state.dependencies.session_rate_limiter.check(bucket)
     return Principal(user=user, session=session, session_public=public)
 
 
@@ -233,7 +262,12 @@ async def application_context(
     db: Annotated[AsyncSession, Depends(get_db)],
     crypto: Annotated[ApplicationKeyCrypto, Depends(get_application_key_crypto)],
 ) -> ApplicationContext:
-    authorization = request.headers.get("authorization", "")
+    authorization_values = request.headers.getlist("authorization")
+    authorization = authorization_values[0] if len(authorization_values) == 1 else ""
+    if len(authorization) > 256 or any(
+        ord(character) < 32 or ord(character) == 127 for character in authorization
+    ):
+        authorization = ""
     scheme, _, public = authorization.partition(" ")
     parsed = crypto.parse(public) if scheme.lower() == "bearer" else None
     if parsed is None:

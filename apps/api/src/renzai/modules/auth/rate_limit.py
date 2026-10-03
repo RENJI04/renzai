@@ -25,6 +25,22 @@ class RedisAuthRateLimiter:
             raise RateLimitError()
 
 
+class RedisSessionRateLimiter:
+    """Fail-closed limiter for cookie-authenticated state-changing requests."""
+
+    def __init__(self, redis: RedisClient, requests: int, window_seconds: int) -> None:
+        self._redis = redis
+        self._requests = requests
+        self._window_seconds = window_seconds
+
+    async def check(self, bucket: str) -> None:
+        count = await self._redis.increment_window(
+            f"renzai:session-rate:v1:{bucket}", self._window_seconds
+        )
+        if count is None or count > self._requests:
+            raise RateLimitError()
+
+
 @dataclass(slots=True)
 class _Window:
     count: int

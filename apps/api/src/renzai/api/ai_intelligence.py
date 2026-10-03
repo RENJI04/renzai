@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from renzai.api.dependencies import (
@@ -37,7 +37,7 @@ class AIConfigurationCreate(StrictModel):
     kind: Literal["openai_compatible_remote", "openai_compatible_local"]
     base_url: str = Field(min_length=1, max_length=512)
     model: str = Field(min_length=1, max_length=160)
-    credential: str | None = Field(default=None, min_length=1, max_length=4096)
+    credential: SecretStr | None = Field(default=None, min_length=1, max_length=4096)
     allow_full_content: bool = False
     connect_timeout_seconds: int = Field(default=3, ge=1, le=10)
     request_timeout_seconds: int = Field(default=30, ge=1, le=120)
@@ -47,7 +47,7 @@ class AIConfigurationCreate(StrictModel):
 class AIConfigurationUpdate(StrictModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     model: str | None = Field(default=None, min_length=1, max_length=160)
-    credential: str | None = Field(default=None, min_length=1, max_length=4096)
+    credential: SecretStr | None = Field(default=None, min_length=1, max_length=4096)
     allow_full_content: bool | None = None
 
 
@@ -83,7 +83,7 @@ async def create_ai_provider(
         kind=body.kind,
         base_url=body.base_url,
         model=body.model,
-        credential=body.credential,
+        credential=body.credential.get_secret_value() if body.credential else None,
         allow_full_content=body.allow_full_content,
         connect_timeout_seconds=body.connect_timeout_seconds,
         request_timeout_seconds=body.request_timeout_seconds,
@@ -136,7 +136,7 @@ async def update_ai_provider(
             row,
             name=body.name,
             model=body.model,
-            credential=body.credential,
+            credential=body.credential.get_secret_value() if body.credential else None,
             allow_full_content=body.allow_full_content,
         )
     )

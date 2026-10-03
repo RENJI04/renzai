@@ -8,3 +8,7 @@ Phase 4 keeps developer commands in the root `Makefile` and package scripts. Add
 checks Python and built TypeScript SDK Analyze, safe Gateway configuration failure, and incident
 read behavior. It uses only synthetic content and local test credentials and deletes its database
 when complete. Build the TypeScript SDK before running it.
+
+`benchmark_phase13.py` measures the maximum Analyze input, a candidate-heavy normalization input,
+and a 32-message Gateway inspection payload. It is an adversarial local regression measurement,
+not a production SLA.

@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import cached_property
 from typing import Self
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, BaseModel, Field, HttpUrl, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,6 +30,7 @@ class AppConfig(BaseModel):
     public_base_url: HttpUrl
     trusted_proxies: tuple[str, ...]
     expose_docs: bool
+    max_json_body_bytes: int
 
 
 class DatabaseConfig(BaseModel):
@@ -68,6 +70,8 @@ class SessionConfig(BaseModel):
     verifier_key: SecretStr
     verifier_key_id: str
     secure_cookie: bool
+    rate_limit_requests: int
+    rate_limit_window_seconds: int
 
 
 class IdentityConfig(BaseModel):
@@ -77,6 +81,8 @@ class IdentityConfig(BaseModel):
     email_verification_required: bool
     rate_limit_attempts: int
     rate_limit_window_seconds: int
+    password_reset_rate_limit_attempts: int
+    password_reset_rate_limit_window_seconds: int
 
 
 class ApplicationKeyConfig(BaseModel):
@@ -86,6 +92,7 @@ class ApplicationKeyConfig(BaseModel):
 
 
 class AnalyzeConfig(BaseModel):
+    max_body_bytes: int
     max_text_bytes: int
     hard_max_text_bytes: int
     rate_limit_requests: int
@@ -169,6 +176,12 @@ class Settings(BaseSettings):
     )
     app_expose_docs: bool | None = Field(
         default=None, validation_alias=AliasChoices("RENZAI_APP_EXPOSE_DOCS", "app_expose_docs")
+    )
+    app_max_json_body_bytes: int = Field(
+        default=256 * 1024,
+        ge=1024,
+        le=1024 * 1024,
+        validation_alias=AliasChoices("RENZAI_APP_MAX_JSON_BODY_BYTES", "app_max_json_body_bytes"),
     )
 
     database_url: str = Field(
@@ -255,6 +268,23 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("RENZAI_SESSION_SECURE_COOKIE", "session_secure_cookie"),
     )
+    session_rate_limit_requests: int = Field(
+        default=120,
+        ge=1,
+        le=10_000,
+        validation_alias=AliasChoices(
+            "RENZAI_SESSION_RATE_LIMIT_REQUESTS", "session_rate_limit_requests"
+        ),
+    )
+    session_rate_limit_window_seconds: int = Field(
+        default=60,
+        ge=1,
+        le=86_400,
+        validation_alias=AliasChoices(
+            "RENZAI_SESSION_RATE_LIMIT_WINDOW_SECONDS",
+            "session_rate_limit_window_seconds",
+        ),
+    )
     password_reset_minutes: int = Field(
         default=30,
         ge=5,
@@ -282,7 +312,7 @@ class Settings(BaseSettings):
         ),
     )
     auth_rate_limit_attempts: int = Field(
-        default=10,
+        default=5,
         ge=1,
         le=1000,
         validation_alias=AliasChoices(
@@ -290,11 +320,29 @@ class Settings(BaseSettings):
         ),
     )
     auth_rate_limit_window_seconds: int = Field(
-        default=300,
+        default=900,
         ge=1,
         le=86400,
         validation_alias=AliasChoices(
             "RENZAI_AUTH_RATE_LIMIT_WINDOW_SECONDS", "auth_rate_limit_window_seconds"
+        ),
+    )
+    password_reset_rate_limit_attempts: int = Field(
+        default=3,
+        ge=1,
+        le=100,
+        validation_alias=AliasChoices(
+            "RENZAI_PASSWORD_RESET_RATE_LIMIT_ATTEMPTS",
+            "password_reset_rate_limit_attempts",
+        ),
+    )
+    password_reset_rate_limit_window_seconds: int = Field(
+        default=3600,
+        ge=1,
+        le=86_400,
+        validation_alias=AliasChoices(
+            "RENZAI_PASSWORD_RESET_RATE_LIMIT_WINDOW_SECONDS",
+            "password_reset_rate_limit_window_seconds",
         ),
     )
     application_key_verifier_key: SecretStr = Field(
@@ -318,6 +366,12 @@ class Settings(BaseSettings):
             "RENZAI_APPLICATION_KEY_MAXIMUM_EXPIRY_DAYS",
             "application_key_maximum_expiry_days",
         ),
+    )
+    analyze_max_body_bytes: int = Field(
+        default=64 * 1024,
+        ge=1024,
+        le=1024 * 1024,
+        validation_alias=AliasChoices("RENZAI_ANALYZE_MAX_BODY_BYTES", "analyze_max_body_bytes"),
     )
     analyze_max_text_bytes: int = Field(
         default=32 * 1024,
@@ -474,9 +528,27 @@ class Settings(BaseSettings):
             raise ValueError("session absolute lifetime must be at least the idle lifetime")
         if self.cors_allow_credentials and "*" in self.cors_origins:
             raise ValueError("credentialed CORS cannot use a wildcard origin")
+        for origin in self.cors_origins:
+            parsed_origin = urlsplit(origin)
+            if (
+                parsed_origin.scheme not in {"http", "https"}
+                or not parsed_origin.hostname
+                or parsed_origin.username is not None
+                or parsed_origin.password is not None
+                or parsed_origin.path not in {"", "/"}
+                or parsed_origin.query
+                or parsed_origin.fragment
+            ):
+                raise ValueError("CORS origins must be exact HTTP(S) origins")
+            if self.app_environment is Environment.PRODUCTION and parsed_origin.scheme != "https":
+                raise ValueError("production CORS origins must use HTTPS")
         if self.app_environment is Environment.PRODUCTION:
             if self.app_public_base_url.scheme != "https":
                 raise ValueError("production public base URL must use HTTPS")
+            if self.app_debug:
+                raise ValueError("debug mode is unavailable in production")
+            if self.app_expose_docs is True:
+                raise ValueError("interactive API documentation is unavailable in production")
             if self.feature_flags_unsafe_inspection_override:
                 raise ValueError("unsafe inspection override is development-only")
         if self.app_environment in {Environment.STAGING, Environment.PRODUCTION}:
@@ -513,9 +585,34 @@ class Settings(BaseSettings):
             raise ValueError("a non-development provider credential key ring is required")
         if self.analyze_max_text_bytes > self.analyze_hard_max_text_bytes:
             raise ValueError("Analyze default text limit cannot exceed its hard ceiling")
+        if self.analyze_max_text_bytes > self.analyze_max_body_bytes:
+            raise ValueError("Analyze text limit cannot exceed its request body limit")
         if self.gateway_max_combined_message_bytes > self.gateway_max_body_bytes:
             raise ValueError("Gateway message limit cannot exceed its body limit")
+        if any(
+            not self._valid_exact_host(host) for host in self.outbound_trusted_local_provider_hosts
+        ):
+            raise ValueError("local provider allowlist entries must be exact hostnames or IPs")
         return self
+
+    @staticmethod
+    def _valid_exact_host(value: str) -> bool:
+        if (
+            not value
+            or value == "*"
+            or "/" in value
+            or "://" in value
+            or any(
+                character.isspace() or ord(character) < 33 or ord(character) == 127
+                for character in value
+            )
+        ):
+            return False
+        try:
+            ascii_value = value.rstrip(".").encode("idna").decode("ascii")
+        except UnicodeError:
+            return False
+        return bool(ascii_value) and len(ascii_value) <= 253
 
     @cached_property
     def app(self) -> AppConfig:
@@ -527,6 +624,7 @@ class Settings(BaseSettings):
             expose_docs=self.app_expose_docs
             if self.app_expose_docs is not None
             else self.app_environment is not Environment.PRODUCTION,
+            max_json_body_bytes=self.app_max_json_body_bytes,
         )
 
     @cached_property
@@ -582,6 +680,8 @@ class Settings(BaseSettings):
             secure_cookie=self.session_secure_cookie
             if self.session_secure_cookie is not None
             else self.app_environment not in {Environment.DEVELOPMENT, Environment.TEST},
+            rate_limit_requests=self.session_rate_limit_requests,
+            rate_limit_window_seconds=self.session_rate_limit_window_seconds,
         )
 
     @cached_property
@@ -593,6 +693,10 @@ class Settings(BaseSettings):
             email_verification_required=self.email_verification_required,
             rate_limit_attempts=self.auth_rate_limit_attempts,
             rate_limit_window_seconds=self.auth_rate_limit_window_seconds,
+            password_reset_rate_limit_attempts=self.password_reset_rate_limit_attempts,
+            password_reset_rate_limit_window_seconds=(
+                self.password_reset_rate_limit_window_seconds
+            ),
         )
 
     @cached_property
@@ -606,6 +710,7 @@ class Settings(BaseSettings):
     @cached_property
     def analyze(self) -> AnalyzeConfig:
         return AnalyzeConfig(
+            max_body_bytes=self.analyze_max_body_bytes,
             max_text_bytes=self.analyze_max_text_bytes,
             hard_max_text_bytes=self.analyze_hard_max_text_bytes,
             rate_limit_requests=self.analyze_rate_limit_requests,
