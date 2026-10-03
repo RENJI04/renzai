@@ -2,7 +2,7 @@
 
 **Open-Source AI Security & Observability Platform**
 
-Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, policy decisions, incident investigation, privacy-safe operational analytics, and optional advisory AI incident intelligence. Renzai is currently at **Phase 11 AI intelligence implementation**.
+Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, policy decisions, incident investigation, privacy-safe operational analytics, optional advisory AI incident intelligence, and local typed integration SDKs. Renzai is currently at **Phase 12 SDK and integration developer experience**.
 
 ## Goals and principles
 
@@ -14,22 +14,26 @@ Renzai is a self-hostable platform for analyzing and governing LLM-application t
 
 ## Roadmap
 
-Phases 1–3 define product, architecture, and contracts; Phases 4–10 implement the deterministic platform, Gateway, incidents, and analytics; Phase 11 adds optional asynchronous AI-generated incident summaries, explanations, mitigations, and validated policy drafts. Notifications, webhooks, SDKs, agents, and advanced provider protocol features remain later work.
+Phases 1–3 define product, architecture, and contracts; Phases 4–10 implement the deterministic platform, Gateway, incidents, and analytics; Phase 11 adds optional asynchronous AI-generated incident intelligence; Phase 12 adds Python and TypeScript API v1 clients, tests, packaging, and integration guidance. Notifications, webhooks, agents, and advanced provider protocol features remain later work.
 
 ## Documentation
 
-The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), [Phase 8](docs/phase-08/10-phase-08-review.md), [Phase 9](docs/phase-09/10-phase-09-review.md), [Phase 10](docs/phase-10/10-phase-10-review.md), and [Phase 11](docs/phase-11/10-phase-11-review.md).
+The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), [Phase 8](docs/phase-08/10-phase-08-review.md), [Phase 9](docs/phase-09/10-phase-09-review.md), [Phase 10](docs/phase-10/10-phase-10-review.md), [Phase 11](docs/phase-11/10-phase-11-review.md), and [Phase 12](docs/phase-12/10-phase-12-review.md).
 
 ## Implemented platform boundary
 
-Phase 11 includes the prior deterministic platform plus purpose-separated AI provider configuration, ID-only asynchronous jobs, privacy-approved incident context, strictly validated AI results, and a labelled Incident UI. AI remains advisory and optional; it cannot change findings, risk, policies, incidents, or Gateway decisions. Renzai still does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, notifications, webhooks, autonomous remediation, SDKs, or agents.
+Phase 12 includes the prior deterministic platform and optional advisory AI intelligence plus local `renzai-sdk` and `@renzai/sdk` packages targeting Renzai API v1. SDKs are not published to PyPI or npm. Renzai still does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, notifications, webhooks, autonomous remediation, or agents.
 
 ## Repository layout
 
 - `apps/api` — FastAPI identity/tenancy, deterministic analysis, provider/Gateway, incidents, analytics, and optional AI intelligence backend.
 - `apps/web` — Next.js management console, operational dashboard, Security Playground, policy/provider UI, and Incident Queue.
 - `workers` — JSON-only Celery bootstrap, diagnostics, and ID-only AI intelligence task.
+- `packages/python-sdk` — typed sync/async Python API v1 client.
+- `packages/typescript-sdk` — strict TypeScript server-runtime API v1 client.
+- `examples/phase-12` — safe Analyze, Gateway, incident, AI, and framework integration examples.
 - `docs/phase-11` — AI architecture, privacy, task contracts, security, traceability, and review.
+- `docs/phase-12` — SDK architecture, usage, security, testing, traceability, and review.
 - `docs/development` — local setup and command reference.
 
 ## Local development

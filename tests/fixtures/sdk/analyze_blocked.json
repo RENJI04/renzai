@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "policy_block",
+    "message": "The request was blocked by policy.",
+    "request_id": "fixture-request-block",
+    "details": {"phase": "input", "action": "block"}
+  }
+}

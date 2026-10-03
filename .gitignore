@@ -16,6 +16,8 @@ __pycache__/
 node_modules/
 .next/
 coverage/
+dist/
+*.tgz
 playwright-report/
 test-results/
 

@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "validation",
+    "message": "The request was invalid.",
+    "request_id": "fixture-request-validation",
+    "details": {"fields": ["direction"]}
+  }
+}

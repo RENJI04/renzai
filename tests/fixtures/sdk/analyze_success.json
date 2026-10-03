@@ -1,0 +1,29 @@
+{
+  "analysis_id": "01900000-0000-7000-8000-000000000001",
+  "event_id": "01900000-0000-7000-8000-000000000002",
+  "timestamp": "2026-10-03T00:00:00+00:00",
+  "direction": "input",
+  "source": "analyze",
+  "safe": true,
+  "no_detected_threat": true,
+  "action": "allow",
+  "risk_score": 0,
+  "severity": "low",
+  "confidence": 100,
+  "risk_profile": {"id": "default", "name": "renzai-v1", "version": 1},
+  "normalization_version": "1.0.0",
+  "detector_ruleset_version": "1.0.0",
+  "findings": [],
+  "risk_contributions": [],
+  "risk_explanation": {"base_score": 0},
+  "policy_decision": {
+    "policy_decision_id": "01900000-0000-7000-8000-000000000003",
+    "policy_match": null,
+    "evaluated_policy_versions": [],
+    "scope_winners": [],
+    "rationale_code": "no_policy_matched",
+    "redaction_targets": []
+  },
+  "timing": {"total_ms": 2},
+  "correlation_id": "fixture-correlation"
+}

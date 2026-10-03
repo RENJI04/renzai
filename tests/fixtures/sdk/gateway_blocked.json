@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "policy_block",
+    "message": "The Gateway request was blocked by policy.",
+    "request_id": "fixture-gateway-block",
+    "details": {"phase": "input", "action": "block"}
+  }
+}

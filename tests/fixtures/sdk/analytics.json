@@ -1,0 +1,15 @@
+{
+  "filters": {"window": "24h"},
+  "summary": {"total_analyses": 1, "blocked": 0},
+  "activity": [],
+  "risk_distribution": [],
+  "threat_categories": [],
+  "top_detectors": [],
+  "policy_actions": [],
+  "applications": [],
+  "environments": [],
+  "providers": [],
+  "incidents": {"open": 1},
+  "recent_incidents": [],
+  "query_duration_ms": 3
+}

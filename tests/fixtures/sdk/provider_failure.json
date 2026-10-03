@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "provider_error",
+    "message": "The configured provider could not complete the request.",
+    "request_id": "fixture-request-provider",
+    "details": {"phase": "provider"}
+  }
+}

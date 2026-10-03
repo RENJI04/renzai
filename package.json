@@ -3,6 +3,10 @@
   "private": true,
   "packageManager": "pnpm@11.19.0",
   "scripts": {
+    "sdk:ts:build": "pnpm --dir packages/typescript-sdk build",
+    "sdk:ts:lint": "pnpm --dir packages/typescript-sdk lint",
+    "sdk:ts:test": "pnpm --dir packages/typescript-sdk test",
+    "sdk:ts:typecheck": "pnpm --dir packages/typescript-sdk typecheck",
     "web:dev": "pnpm --dir apps/web dev",
     "web:lint": "pnpm --dir apps/web lint",
     "web:typecheck": "pnpm --dir apps/web typecheck",

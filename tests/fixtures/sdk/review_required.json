@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "review_required",
+    "message": "Human review is required before this request can continue.",
+    "request_id": "fixture-request-review",
+    "details": {"phase": "input", "action": "require_review"}
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "rate_limit",
+    "message": "The request rate limit was exceeded.",
+    "request_id": "fixture-request-rate",
+    "details": {"retry_after_seconds": 1}
+  }
+}

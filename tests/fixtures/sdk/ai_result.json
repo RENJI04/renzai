@@ -1,0 +1,20 @@
+{
+  "request_id": "01900000-0000-7000-8000-000000000020",
+  "incident_id": "01900000-0000-7000-8000-000000000010",
+  "task_type": "incident_summary",
+  "status": "completed",
+  "ai_generated": true,
+  "context_mode": "redacted",
+  "incident_version": 1,
+  "provider_id": "01900000-0000-7000-8000-000000000021",
+  "provider_name": "Synthetic provider",
+  "model": "synthetic-model",
+  "prompt_template_version": "1.0.0",
+  "input_context_version": "1.0.0",
+  "output_schema_version": "1.0.0",
+  "content": {"summary": "Safe synthetic result."},
+  "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+  "error_code": null,
+  "created_at": "2026-10-03T00:00:00+00:00",
+  "completed_at": "2026-10-03T00:00:01+00:00"
+}
