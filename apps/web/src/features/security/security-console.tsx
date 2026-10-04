@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AppWindowIcon, FlaskIcon, KeyIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { apiRequest, RenzaiApiError } from "@/shared/api/client";
 import { ProviderManager } from "./provider-manager";
 
@@ -113,10 +114,12 @@ export function SecurityConsole({
   organizationId,
   role,
   csrfToken,
+  view = "all",
 }: {
   organizationId: string;
   role: string;
   csrfToken: string;
+  view?: "all" | "playground" | "applications" | "providers" | "policies";
 }) {
   const queryClient = useQueryClient();
   const canEdit = ["owner", "admin", "developer"].includes(role);
@@ -206,263 +209,356 @@ export function SecurityConsole({
     event.currentTarget.reset();
   };
 
+  const title =
+    view === "playground"
+      ? "Analysis target"
+      : view === "applications"
+        ? "Runtime inventory"
+        : view === "providers"
+          ? "Provider scope"
+          : view === "policies"
+            ? "Policy scope"
+            : "Security controls";
+
   return (
-    <section className="panel security-console" aria-labelledby="security-heading">
-      <p className="eyebrow">DETERMINISTIC SECURITY</p>
-      <h2 id="security-heading">Applications &amp; Security Playground</h2>
-      <p className="phase-note">
-        Phase 8 adds encrypted providers and fail-closed Gateway enforcement to deterministic
-        analysis.
-      </p>
+    <div className={`security-console security-console-${view} page-stack`}>
+      <section className="surface-card context-card" aria-labelledby="security-heading">
+        <div className="section-heading">
+          <div className="icon-tile">
+            {view === "playground" ? (
+              <FlaskIcon size={22} weight="duotone" />
+            ) : view === "applications" ? (
+              <AppWindowIcon size={22} weight="duotone" />
+            ) : (
+              <ShieldCheckIcon size={22} weight="duotone" />
+            )}
+          </div>
+          <div>
+            <p className="eyebrow">Tenant-scoped controls</p>
+            <h2 id="security-heading">{title}</h2>
+            <p>Choose the application and environment for this workspace.</p>
+          </div>
+        </div>
 
-      <div className="selector-grid">
-        <label>
-          Application
-          <select
-            aria-label="Application"
-            value={activeApplication?.application_id ?? ""}
-            onChange={(event) => {
-              setApplicationId(event.target.value);
-              setEnvironmentId("");
-              setSecretOnce(null);
-              setAnalysis(null);
-            }}
-          >
-            {applications.data?.items.map((application) => (
-              <option key={application.application_id} value={application.application_id}>
-                {application.name} · {application.status}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Environment
-          <select
-            aria-label="Environment"
-            value={activeEnvironment?.environment_id ?? ""}
-            onChange={(event) => {
-              setEnvironmentId(event.target.value);
-              setSecretOnce(null);
-              setAnalysis(null);
-            }}
-            disabled={!activeApplication}
-          >
-            {environments.data?.items.map((environment) => (
-              <option key={environment.environment_id} value={environment.environment_id}>
-                {environment.type} · {environment.status}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+        <div className="selector-grid">
+          <label>
+            Application
+            <select
+              aria-label="Application"
+              value={activeApplication?.application_id ?? ""}
+              onChange={(event) => {
+                setApplicationId(event.target.value);
+                setEnvironmentId("");
+                setSecretOnce(null);
+                setAnalysis(null);
+              }}
+            >
+              {applications.data?.items.map((application) => (
+                <option key={application.application_id} value={application.application_id}>
+                  {application.name} · {application.status}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Environment
+            <select
+              aria-label="Environment"
+              value={activeEnvironment?.environment_id ?? ""}
+              onChange={(event) => {
+                setEnvironmentId(event.target.value);
+                setSecretOnce(null);
+                setAnalysis(null);
+              }}
+              disabled={!activeApplication}
+            >
+              {environments.data?.items.map((environment) => (
+                <option key={environment.environment_id} value={environment.environment_id}>
+                  {environment.type} · {environment.status}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
 
-      {canEdit && (
-        <div className="resource-grid">
-          <form
-            onSubmit={(event) =>
-              submit(event, (form) => ({
-                path: `/api/v1/organizations/${organizationId}/applications`,
-                init: json({ name: form.get("name") }),
-              }))
-            }
-          >
-            <h3>Create application</h3>
-            <input
-              name="name"
-              aria-label="Application name"
-              placeholder="Support copilot"
-              required
-            />
-            <button className="primary">Create application</button>
-          </form>
-          {activeApplication && (
+      {(view === "all" || view === "applications") && canEdit && (
+        <section className="surface-card">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Resource setup</p>
+              <h2>Applications and environments</h2>
+              <p>Create isolated runtime targets for Renzai analysis and Gateway enforcement.</p>
+            </div>
+          </div>
+          <div className="resource-grid">
             <form
               onSubmit={(event) =>
                 submit(event, (form) => ({
-                  path: `/api/v1/organizations/${organizationId}/applications/${activeApplication.application_id}/environments`,
-                  init: json({ type: form.get("type") }),
+                  path: `/api/v1/organizations/${organizationId}/applications`,
+                  init: json({ name: form.get("name") }),
                 }))
               }
             >
-              <h3>Create environment</h3>
-              <select name="type" aria-label="Environment type" defaultValue="development">
-                <option value="development">Development</option>
-                <option value="staging">Staging</option>
-                <option value="production">Production</option>
-              </select>
-              <button className="primary">Create environment</button>
-            </form>
-          )}
-        </div>
-      )}
-
-      {canEdit && activeApplication && activeEnvironment && (
-        <section className="subpanel" aria-labelledby="keys-heading">
-          <h3 id="keys-heading">Environment keys</h3>
-          <form
-            className="inline-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              keyMutation.mutate({
-                path: `/api/v1/organizations/${organizationId}/applications/${activeApplication.application_id}/environments/${activeEnvironment.environment_id}/keys`,
-                body: { label: form.get("label") },
-              });
-              event.currentTarget.reset();
-            }}
-          >
-            <input name="label" aria-label="Key label" placeholder="CI integration" required />
-            <button className="primary">Create key</button>
-          </form>
-          {secretOnce && (
-            <div className="secret-once" role="status">
-              <strong>Copy this key now. It cannot be retrieved again.</strong>
-              <code>{secretOnce}</code>
-              <button onClick={() => setSecretOnce(null)}>Dismiss secret</button>
-            </div>
-          )}
-          <div className="key-list">
-            {keys.data?.items.map((key) => (
-              <div key={key.key_id}>
-                <span>
-                  <strong>{key.label}</strong> <code>{key.prefix}</code>
-                </span>
-                <span className="actions">
-                  <button
-                    disabled={Boolean(key.revoked_at)}
-                    onClick={() =>
-                      keyMutation.mutate({
-                        path: `/api/v1/organizations/${organizationId}/applications/${activeApplication.application_id}/environments/${activeEnvironment.environment_id}/keys/${key.key_id}/rotate`,
-                        body: {},
-                      })
-                    }
-                  >
-                    Rotate
-                  </button>
-                  <button
-                    disabled={Boolean(key.revoked_at)}
-                    onClick={() =>
-                      mutation.mutate({
-                        path: `/api/v1/organizations/${organizationId}/applications/${activeApplication.application_id}/environments/${activeEnvironment.environment_id}/keys/${key.key_id}/revoke`,
-                        init: { method: "POST" },
-                      })
-                    }
-                  >
-                    Revoke
-                  </button>
-                </span>
+              <div className="form-heading">
+                <AppWindowIcon size={20} aria-hidden="true" />
+                <h3>Create application</h3>
               </div>
-            ))}
+              <input
+                name="name"
+                aria-label="Application name"
+                placeholder="Support copilot"
+                required
+              />
+              <button className="primary">Create application</button>
+            </form>
+            {activeApplication && (
+              <form
+                onSubmit={(event) =>
+                  submit(event, (form) => ({
+                    path: `/api/v1/organizations/${organizationId}/applications/${activeApplication.application_id}/environments`,
+                    init: json({ type: form.get("type") }),
+                  }))
+                }
+              >
+                <div className="form-heading">
+                  <ShieldCheckIcon size={20} aria-hidden="true" />
+                  <h3>Create environment</h3>
+                </div>
+                <select name="type" aria-label="Environment type" defaultValue="development">
+                  <option value="development">Development</option>
+                  <option value="staging">Staging</option>
+                  <option value="production">Production</option>
+                </select>
+                <button className="primary">Create environment</button>
+              </form>
+            )}
           </div>
         </section>
       )}
 
-      {canPlay && activeApplication && activeEnvironment && (
-        <section className="subpanel" aria-labelledby="playground-heading">
-          <h3 id="playground-heading">Security Playground</h3>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              analyzeMutation.mutate({
-                application_id: activeApplication.application_id,
-                environment_id: activeEnvironment.environment_id,
-                direction: form.get("direction"),
-                content: form.get("content"),
-              });
-            }}
-          >
-            <label>
-              Direction
-              <select name="direction" defaultValue="input">
-                <option value="input">Input</option>
-                <option value="output">Output</option>
-              </select>
-            </label>
-            <label>
-              Test content
-              <textarea name="content" rows={6} maxLength={32768} required />
-            </label>
-            <button className="primary" disabled={analyzeMutation.isPending}>
-              {analyzeMutation.isPending ? "Analyzing…" : "Analyze"}
-            </button>
-          </form>
-          {analysis && (
-            <div className="analysis-result" aria-live="polite">
-              <div className="risk-summary">
-                <div>
-                  <span>Risk score</span>
-                  <strong>{analysis.risk_score}</strong>
-                </div>
-                <div>
-                  <span>Severity</span>
-                  <strong>{analysis.severity}</strong>
-                </div>
-                <div>
-                  <span>Confidence</span>
-                  <strong>{analysis.confidence}%</strong>
-                </div>
-                <div>
-                  <span>Action</span>
-                  <strong>{analysis.action.replace("_", " ")}</strong>
-                </div>
+      {(view === "all" || view === "applications") &&
+        canEdit &&
+        activeApplication &&
+        activeEnvironment && (
+          <section className="surface-card" aria-labelledby="keys-heading">
+            <div className="section-heading">
+              <div className="icon-tile">
+                <KeyIcon size={21} weight="duotone" />
               </div>
-              <p>
-                <strong>
-                  {analysis.safe ? "No detected threat" : `${analysis.findings.length} finding(s)`}
-                </strong>
-                {` · ${analysis.risk_profile.name} v${analysis.risk_profile.version} · ${analysis.timing.total_ms} ms`}
-              </p>
-              {analysis.findings.map((finding) => (
-                <article key={finding.finding_id}>
-                  <p>
-                    <strong>{finding.detector_id}</strong> · {finding.category} · {finding.severity}{" "}
-                    · {finding.confidence}% confidence
-                  </p>
-                  <p>{finding.safe_explanation}</p>
-                  <code>
-                    {finding.evidence.text ??
-                      finding.evidence.label ??
-                      `${finding.evidence.kind} ${finding.evidence.start ?? ""}:${finding.evidence.end ?? ""}`}
-                  </code>
-                </article>
+              <div>
+                <p className="eyebrow">Write-only credentials</p>
+                <h2 id="keys-heading">Environment keys</h2>
+                <p>Keys are shown once. Store them in your own secret manager immediately.</p>
+              </div>
+            </div>
+            <form
+              className="inline-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                keyMutation.mutate({
+                  path: `/api/v1/organizations/${organizationId}/applications/${activeApplication.application_id}/environments/${activeEnvironment.environment_id}/keys`,
+                  body: { label: form.get("label") },
+                });
+                event.currentTarget.reset();
+              }}
+            >
+              <input name="label" aria-label="Key label" placeholder="CI integration" required />
+              <button className="primary">Create key</button>
+            </form>
+            {secretOnce && (
+              <div className="secret-once" role="status">
+                <strong>Copy this key now. It cannot be retrieved again.</strong>
+                <code>{secretOnce}</code>
+                <button onClick={() => setSecretOnce(null)}>Dismiss secret</button>
+              </div>
+            )}
+            <div className="key-list">
+              {keys.data?.items.map((key) => (
+                <div key={key.key_id}>
+                  <span>
+                    <strong>{key.label}</strong> <code>{key.prefix}</code>
+                  </span>
+                  <span className="actions">
+                    <button
+                      disabled={Boolean(key.revoked_at)}
+                      onClick={() =>
+                        keyMutation.mutate({
+                          path: `/api/v1/organizations/${organizationId}/applications/${activeApplication.application_id}/environments/${activeEnvironment.environment_id}/keys/${key.key_id}/rotate`,
+                          body: {},
+                        })
+                      }
+                    >
+                      Rotate
+                    </button>
+                    <button
+                      disabled={Boolean(key.revoked_at)}
+                      onClick={() =>
+                        mutation.mutate({
+                          path: `/api/v1/organizations/${organizationId}/applications/${activeApplication.application_id}/environments/${activeEnvironment.environment_id}/keys/${key.key_id}/revoke`,
+                          init: { method: "POST" },
+                        })
+                      }
+                    >
+                      Revoke
+                    </button>
+                  </span>
+                </div>
               ))}
-              <details>
-                <summary>Risk explanation</summary>
+            </div>
+          </section>
+        )}
+
+      {(view === "all" || view === "playground") &&
+        canPlay &&
+        activeApplication &&
+        activeEnvironment && (
+          <section
+            className="surface-card playground-workbench"
+            aria-labelledby="playground-heading"
+          >
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Live inspection</p>
+                <h2 id="playground-heading">Test a security decision</h2>
                 <p>
-                  Base {analysis.risk_explanation.base_score} + corroboration{" "}
-                  {analysis.risk_explanation.corroboration_bonus}
-                  {analysis.risk_explanation.critical_floor
-                    ? ` · critical floor ${analysis.risk_explanation.critical_floor}`
-                    : ""}
+                  Content is evaluated by the configured deterministic analysis and policy pipeline.
                 </p>
-                <ul>
-                  {analysis.risk_contributions.map((contribution) => (
-                    <li key={contribution.finding_id}>
-                      {contribution.category}: {contribution.raw_contribution} (
-                      {contribution.status})
-                    </li>
+              </div>
+            </div>
+            <div className="playground-layout">
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = new FormData(event.currentTarget);
+                  analyzeMutation.mutate({
+                    application_id: activeApplication.application_id,
+                    environment_id: activeEnvironment.environment_id,
+                    direction: form.get("direction"),
+                    content: form.get("content"),
+                  });
+                }}
+              >
+                <label>
+                  Direction
+                  <select name="direction" defaultValue="input">
+                    <option value="input">Input</option>
+                    <option value="output">Output</option>
+                  </select>
+                </label>
+                <label>
+                  Test content
+                  <textarea name="content" rows={6} maxLength={32768} required />
+                </label>
+                <button className="primary" disabled={analyzeMutation.isPending}>
+                  {analyzeMutation.isPending ? "Analyzing…" : "Analyze"}
+                </button>
+              </form>
+              {analysis && (
+                <div
+                  className={`analysis-result analysis-action-${analysis.action}`}
+                  aria-live="polite"
+                >
+                  <header className="decision-hero">
+                    <div>
+                      <p className="eyebrow">Security decision</p>
+                      <h3>{analysis.action.replace("_", " ")}</h3>
+                      <p>
+                        {analysis.safe
+                          ? "No deterministic threat signal was detected."
+                          : `${analysis.findings.length} deterministic finding${analysis.findings.length === 1 ? "" : "s"} contributed to this decision.`}
+                      </p>
+                    </div>
+                    <div className="risk-orb">
+                      <span>Risk</span>
+                      <strong>{analysis.risk_score}</strong>
+                      <small>/ 100</small>
+                    </div>
+                  </header>
+                  <div className="risk-summary">
+                    <div>
+                      <span>Severity</span>
+                      <strong>{analysis.severity}</strong>
+                    </div>
+                    <div>
+                      <span>Confidence</span>
+                      <strong>{analysis.confidence}%</strong>
+                    </div>
+                    <div>
+                      <span>Action</span>
+                      <strong>{analysis.action.replace("_", " ")}</strong>
+                    </div>
+                    <div>
+                      <span>Latency</span>
+                      <strong>{analysis.timing.total_ms} ms</strong>
+                    </div>
+                  </div>
+                  <div className="analysis-section-heading">
+                    <h4>Deterministic findings</h4>
+                    <span className="badge badge-neutral">{analysis.findings.length} total</span>
+                  </div>
+                  {analysis.findings.map((finding) => (
+                    <article key={finding.finding_id}>
+                      <p>
+                        <strong>{finding.detector_id}</strong> · {finding.category} ·{" "}
+                        {finding.severity} · {finding.confidence}% confidence
+                      </p>
+                      <p>{finding.safe_explanation}</p>
+                      <code>
+                        {finding.evidence.text ??
+                          finding.evidence.label ??
+                          `${finding.evidence.kind} ${finding.evidence.start ?? ""}:${finding.evidence.end ?? ""}`}
+                      </code>
+                    </article>
                   ))}
-                </ul>
-              </details>
-              <p>
-                <strong>Policy:</strong>{" "}
-                {analysis.policy_decision.policy_match
-                  ? `${analysis.policy_decision.policy_match.scope_kind} v${analysis.policy_decision.policy_match.version}`
-                  : "no match"}
-                {` · ${analysis.policy_decision.rationale_code}`}
-              </p>
-              {analysis.redacted_content && (
-                <div className="redacted-output">
-                  <strong>Redacted output</strong>
-                  <pre>{analysis.redacted_content}</pre>
+                  <details>
+                    <summary>Risk and technical details</summary>
+                    <p>
+                      Base {analysis.risk_explanation.base_score} + corroboration{" "}
+                      {analysis.risk_explanation.corroboration_bonus}
+                      {analysis.risk_explanation.critical_floor
+                        ? ` · critical floor ${analysis.risk_explanation.critical_floor}`
+                        : ""}
+                    </p>
+                    <ul>
+                      {analysis.risk_contributions.map((contribution) => (
+                        <li key={contribution.finding_id}>
+                          {contribution.category}: {contribution.raw_contribution} (
+                          {contribution.status})
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                  <p>
+                    <strong>Policy decision:</strong>{" "}
+                    {analysis.policy_decision.policy_match
+                      ? `${analysis.policy_decision.policy_match.scope_kind} v${analysis.policy_decision.policy_match.version}`
+                      : "no match"}
+                    {` · ${analysis.policy_decision.rationale_code}`}
+                  </p>
+                  {analysis.redacted_content && (
+                    <div className="redacted-output">
+                      <strong>Redacted output</strong>
+                      <pre>{analysis.redacted_content}</pre>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!analysis && (
+                <div className="playground-preview empty-state">
+                  <ShieldCheckIcon size={34} weight="duotone" aria-hidden="true" />
+                  <h3>Decision appears here</h3>
+                  <p>
+                    Run an analysis to inspect risk, findings, policy rationale, and any safe
+                    redaction.
+                  </p>
                 </div>
               )}
             </div>
-          )}
-        </section>
-      )}
-      {activeApplication && activeEnvironment && (
+          </section>
+        )}
+      {(view === "all" || view === "providers") && activeApplication && activeEnvironment && (
         <ProviderManager
           organizationId={organizationId}
           applicationId={activeApplication.application_id}
@@ -471,7 +567,7 @@ export function SecurityConsole({
           csrfToken={csrfToken}
         />
       )}
-      {activeApplication && activeEnvironment && (
+      {(view === "all" || view === "policies") && activeApplication && activeEnvironment && (
         <PolicyManager
           organizationId={organizationId}
           applicationId={activeApplication.application_id}
@@ -485,7 +581,7 @@ export function SecurityConsole({
           {error}
         </p>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -542,11 +638,14 @@ function PolicyManager({
   };
 
   return (
-    <section className="subpanel policy-manager" aria-labelledby="policies-heading">
-      <h3 id="policies-heading">Risk policies</h3>
-      <p className="muted">
-        First match wins within each scope. The strongest action wins across scopes.
-      </p>
+    <section className="surface-card policy-manager" aria-labelledby="policies-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Versioned enforcement</p>
+          <h2 id="policies-heading">Risk policies</h2>
+          <p>First match wins within each scope. The strongest action wins across scopes.</p>
+        </div>
+      </div>
       <div className="policy-list">
         {policies.data?.items.map((policy) => (
           <article key={policy.policy_id}>

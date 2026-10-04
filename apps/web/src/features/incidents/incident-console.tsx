@@ -216,99 +216,104 @@ export function IncidentConsole({
   };
 
   return (
-    <section className="panel incident-console" aria-labelledby="incident-heading">
-      <p className="eyebrow">INCIDENT MANAGEMENT</p>
-      <h2 id="incident-heading">Incident Queue</h2>
-      <p className="phase-note">
-        Durable, tenant-scoped investigations linked to the original security decision.
-      </p>
-      <div className="incident-filters" aria-label="Incident filters">
-        <label>
-          Status
-          <select
-            aria-label="Incident status filter"
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-          >
-            <option value="">All statuses</option>
-            {Object.keys(transitions).map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Severity
-          <select
-            aria-label="Incident severity filter"
-            value={severity}
-            onChange={(event) => setSeverity(event.target.value)}
-          >
-            <option value="">All severities</option>
-            {(["critical", "high", "medium", "low"] as Severity[]).map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Application
-          <select
-            aria-label="Incident application filter"
-            value={applicationId}
-            onChange={(event) => {
-              setApplicationId(event.target.value);
-              setEnvironmentId("");
-            }}
-          >
-            <option value="">All applications</option>
-            {applications.data?.items.map((application) => (
-              <option key={application.application_id} value={application.application_id}>
-                {application.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Environment
-          <select
-            aria-label="Incident environment filter"
-            value={environmentId}
-            disabled={!applicationId}
-            onChange={(event) => setEnvironmentId(event.target.value)}
-          >
-            <option value="">All environments</option>
-            {environments.data?.items.map((environment) => (
-              <option key={environment.environment_id} value={environment.environment_id}>
-                {environment.type}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Assignee
-          <select
-            aria-label="Incident assignee filter"
-            value={assigneeId}
-            onChange={(event) => setAssigneeId(event.target.value)}
-          >
-            <option value="">All assignees</option>
-            <option value="unassigned">Unassigned</option>
-            {assignees.data?.items.map((assignee) => (
-              <option key={assignee.user_id} value={assignee.user_id}>
-                {assignee.email}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Search safe metadata
-          <input
-            aria-label="Incident search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            maxLength={120}
-          />
-        </label>
-      </div>
+    <div className="incident-console page-stack">
+      <section className="surface-card incident-filter-card" aria-labelledby="incident-heading">
+        <div className="section-heading section-heading-split">
+          <div>
+            <p className="eyebrow">Triage controls</p>
+            <h2 id="incident-heading">Incident Queue</h2>
+            <p>Durable, tenant-scoped investigations linked to the original security decision.</p>
+          </div>
+          <span className="metric-pill">{queueItems.length} loaded</span>
+        </div>
+        <div className="incident-filters" aria-label="Incident filters">
+          <label>
+            Status
+            <select
+              aria-label="Incident status filter"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
+              <option value="">All statuses</option>
+              {Object.keys(transitions).map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Severity
+            <select
+              aria-label="Incident severity filter"
+              value={severity}
+              onChange={(event) => setSeverity(event.target.value)}
+            >
+              <option value="">All severities</option>
+              {(["critical", "high", "medium", "low"] as Severity[]).map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Application
+            <select
+              aria-label="Incident application filter"
+              value={applicationId}
+              onChange={(event) => {
+                setApplicationId(event.target.value);
+                setEnvironmentId("");
+              }}
+            >
+              <option value="">All applications</option>
+              {applications.data?.items.map((application) => (
+                <option key={application.application_id} value={application.application_id}>
+                  {application.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Environment
+            <select
+              aria-label="Incident environment filter"
+              value={environmentId}
+              disabled={!applicationId}
+              onChange={(event) => setEnvironmentId(event.target.value)}
+            >
+              <option value="">All environments</option>
+              {environments.data?.items.map((environment) => (
+                <option key={environment.environment_id} value={environment.environment_id}>
+                  {environment.type}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Assignee
+            <select
+              aria-label="Incident assignee filter"
+              value={assigneeId}
+              onChange={(event) => setAssigneeId(event.target.value)}
+            >
+              <option value="">All assignees</option>
+              <option value="unassigned">Unassigned</option>
+              {assignees.data?.items.map((assignee) => (
+                <option key={assignee.user_id} value={assignee.user_id}>
+                  {assignee.email}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Search safe metadata
+            <input
+              aria-label="Incident search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              maxLength={120}
+            />
+          </label>
+        </div>
+      </section>
 
       <div className="incident-layout">
         <div className="incident-list" aria-label="Incident queue results">
@@ -346,7 +351,7 @@ export function IncidentConsole({
         </div>
 
         {detail.data && (
-          <article className="incident-detail" aria-label="Incident detail">
+          <article className="incident-detail surface-card" aria-label="Incident detail">
             <header>
               <div>
                 <span className={`severity severity-${detail.data.severity}`}>
@@ -440,8 +445,14 @@ export function IncidentConsole({
               False-positive classification does not modify detectors, risk weights, or policies.
             </p>
 
-            <section>
-              <h4>Deterministic Security Evidence</h4>
+            <section className="evidence-panel deterministic-evidence">
+              <div className="evidence-heading">
+                <div>
+                  <span className="evidence-kicker">Source of truth</span>
+                  <h4>Deterministic Security Evidence</h4>
+                </div>
+                <span className="badge badge-success">Verified pipeline</span>
+              </div>
               {detail.data.analysis?.state === "content_no_longer_retained" ? (
                 <p className="muted">
                   Content no longer retained. Incident metadata remains available.
@@ -503,7 +514,7 @@ export function IncidentConsole({
               csrfToken={csrfToken}
             />
 
-            <section>
+            <section className="evidence-panel">
               <h4>Timeline</h4>
               <ol className="timeline">
                 {detail.data.timeline.map((item) => (
@@ -517,7 +528,7 @@ export function IncidentConsole({
                 ))}
               </ol>
             </section>
-            <section>
+            <section className="evidence-panel">
               <h4>Comments</h4>
               <div className="comment-list">
                 {detail.data.comments.map((comment) => (
@@ -547,6 +558,6 @@ export function IncidentConsole({
           {error}
         </p>
       )}
-    </section>
+    </div>
   );
 }

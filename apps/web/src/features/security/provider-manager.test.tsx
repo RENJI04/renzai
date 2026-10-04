@@ -20,7 +20,7 @@ describe("provider manager assurance states", () => {
     renderManager("owner");
     expect(screen.getByRole("status")).toHaveTextContent("Loading provider configurations");
     resolveRequest?.(jsonResponse({ items: [] }));
-    expect(await screen.findByText("No provider configurations yet.")).toBeVisible();
+    expect(await screen.findByText("No Gateway provider configured")).toBeVisible();
     expect(screen.getByLabelText("Kind")).toBeVisible();
     expect(screen.getByLabelText("Name")).toBeVisible();
     expect(screen.getByLabelText("Base URL")).toBeVisible();

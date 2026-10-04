@@ -30,7 +30,7 @@ describe("identity page", () => {
     );
     expect(screen.getByRole("status")).toHaveTextContent("Loading your workspace");
     fireEvent.click(await screen.findByRole("button", { name: "Forgot your password?" }));
-    fireEvent.change(screen.getByLabelText("Email"), {
+    fireEvent.change(screen.getByLabelText("Work email"), {
       target: { value: "reset@example.test" },
     });
     fireEvent.submit(screen.getByRole("button", { name: "Request reset" }).closest("form")!);
@@ -82,13 +82,17 @@ describe("identity page", () => {
         <HomePage />
       </QueryProvider>,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Need an account? Register" }));
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "New to Renzai? Create an account" }),
+    );
+    fireEvent.change(screen.getByLabelText("Work email"), {
+      target: { value: "new@example.com" },
+    });
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "correct horse 12345" },
     });
-    fireEvent.submit(screen.getByRole("button", { name: "Register" }).closest("form")!);
-    expect(await screen.findByText("new@example.com")).toBeInTheDocument();
+    fireEvent.submit(screen.getByRole("button", { name: "Create account" }).closest("form")!);
+    expect(await screen.findByText(/Signed in as/)).toHaveTextContent("new@example.com");
     expect(screen.getByRole("heading", { name: "Create your first organization" })).toBeVisible();
   });
 
@@ -134,20 +138,13 @@ describe("identity page", () => {
         <HomePage />
       </QueryProvider>,
     );
-    expect(await screen.findByRole("heading", { name: "Alpha" })).toBeVisible();
-    fireEvent.click(screen.getByText("New organization"));
-    expect(screen.getByLabelText("Organization name")).toBeVisible();
-    expect(screen.getByLabelText("Organization slug")).toBeVisible();
-    fireEvent.click(screen.getByText("Accept invitation"));
-    expect(screen.getByLabelText("Invitation token")).toBeVisible();
-    expect(screen.getByLabelText("Invitee email")).toBeVisible();
-    expect(screen.getByLabelText("Invitation role")).toBeVisible();
-    expect(screen.getByLabelText("Current password")).toBeVisible();
-    expect(screen.getByLabelText("New password")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Invite a member" })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: /Beta/ }));
-    expect(await screen.findByRole("heading", { name: "Beta" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Invite a member" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Security overview" })).toBeVisible();
+    expect(screen.getByLabelText("Active organization")).toHaveValue("org-a");
+    fireEvent.change(screen.getByLabelText("Active organization"), {
+      target: { value: "org-b" },
+    });
+    expect(screen.getByLabelText("Active organization")).toHaveValue("org-b");
+    expect(screen.getByText("viewer")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Welcome back" })).toBeVisible(),

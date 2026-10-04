@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ArrowRightIcon, ChartLineUpIcon, ShieldCheckIcon, SirenIcon } from "@phosphor-icons/react";
 import { apiRequest, RenzaiApiError } from "@/shared/api/client";
 
 const ActivityChart = dynamic(
@@ -98,7 +99,13 @@ type Dashboard = {
 
 const windows = ["24h", "7d", "30d", "90d"] as const;
 
-export function DashboardConsole({ organizationId }: { organizationId: string }) {
+export function DashboardConsole({
+  organizationId,
+  mode = "analytics",
+}: {
+  organizationId: string;
+  mode?: "overview" | "analytics";
+}) {
   const [window, setWindow] = useState<(typeof windows)[number]>("24h");
   const [applicationId, setApplicationId] = useState("");
   const [environmentId, setEnvironmentId] = useState("");
@@ -130,11 +137,13 @@ export function DashboardConsole({ organizationId }: { organizationId: string })
   });
 
   return (
-    <section className="panel dashboard" aria-labelledby="dashboard-heading">
+    <section className={`dashboard dashboard-${mode}`} aria-labelledby="dashboard-heading">
       <header className="dashboard-header">
         <div>
-          <p className="eyebrow">OPERATIONS</p>
-          <h2 id="dashboard-heading">Security dashboard</h2>
+          <p className="eyebrow">{mode === "overview" ? "Live posture" : "Query controls"}</p>
+          <h2 id="dashboard-heading">
+            {mode === "overview" ? "Operational signals" : "Security analytics"}
+          </h2>
           <p className="muted">Completed inspection and Gateway outcome metadata in UTC.</p>
         </div>
         <div className="dashboard-filters" aria-label="Dashboard filters">
@@ -201,12 +210,12 @@ export function DashboardConsole({ organizationId }: { organizationId: string })
       </header>
       {dashboard.isPending ? <DashboardSkeleton /> : null}
       {dashboard.isError ? <DashboardError error={dashboard.error} /> : null}
-      {dashboard.data ? <DashboardBody data={dashboard.data} /> : null}
+      {dashboard.data ? <DashboardBody data={dashboard.data} mode={mode} /> : null}
     </section>
   );
 }
 
-function DashboardBody({ data }: { data: Dashboard }) {
+function DashboardBody({ data, mode }: { data: Dashboard; mode: "overview" | "analytics" }) {
   const empty = data.summary.analyses === 0 && data.summary.gateway_requests === 0;
   return (
     <div aria-live="polite">
@@ -219,7 +228,15 @@ function DashboardBody({ data }: { data: Dashboard }) {
         <Kpi label="Threat rate" value={`${data.summary.threat_rate_percent}%`} />
         <Kpi label="Gateway requests" value={data.summary.gateway_requests} />
       </div>
-      {empty ? <p className="empty dashboard-empty">No security activity in this period</p> : null}
+      {empty ? (
+        <div className="dashboard-empty">
+          <ShieldCheckIcon size={22} weight="duotone" aria-hidden="true" />
+          <span>
+            <strong>No security activity in this period</strong>
+            <small>Renzai is ready to record deterministic analyses and Gateway outcomes.</small>
+          </span>
+        </div>
+      ) : null}
       <div className="dashboard-grid">
         <DashboardPanel title="Activity" wide>
           <div role="img" aria-label="Analyses, threats, blocked, and review activity over time">
@@ -232,49 +249,58 @@ function DashboardBody({ data }: { data: Dashboard }) {
             valueKeys={["analysis_count", "threat_count", "blocked_count", "review_count"]}
           />
         </DashboardPanel>
-        <DashboardPanel title="Final risk distribution">
-          <MetricBarChart
-            data={data.risk_distribution}
-            categoryKey="severity"
-            valueKey="count"
-            label="Analyses"
-          />
-          <AccessibleMetricTable
-            caption="Risk distribution values"
-            rows={data.risk_distribution}
-            labelKey="severity"
-            valueKeys={["count"]}
-          />
-        </DashboardPanel>
-        <DashboardPanel title="Threat categories">
-          <MetricBarChart
-            data={data.threat_categories}
-            categoryKey="category"
-            valueKey="finding_count"
-            label="Findings"
-          />
-          <AccessibleMetricTable
-            caption="Threat category values"
-            rows={data.threat_categories}
-            labelKey="category"
-            valueKeys={["finding_count", "affected_analyses"]}
-          />
-        </DashboardPanel>
-        <DashboardPanel title="Policy actions">
-          <MetricBarChart
-            data={data.policy_actions}
-            categoryKey="action"
-            valueKey="count"
-            label="Decisions"
-          />
-          <AccessibleMetricTable
-            caption="Policy action values"
-            rows={data.policy_actions}
-            labelKey="action"
-            valueKeys={["count"]}
-          />
-        </DashboardPanel>
+        {mode === "analytics" && (
+          <DashboardPanel title="Final risk distribution">
+            <MetricBarChart
+              data={data.risk_distribution}
+              categoryKey="severity"
+              valueKey="count"
+              label="Analyses"
+            />
+            <AccessibleMetricTable
+              caption="Risk distribution values"
+              rows={data.risk_distribution}
+              labelKey="severity"
+              valueKeys={["count"]}
+            />
+          </DashboardPanel>
+        )}
+        {mode === "analytics" && (
+          <DashboardPanel title="Threat categories">
+            <MetricBarChart
+              data={data.threat_categories}
+              categoryKey="category"
+              valueKey="finding_count"
+              label="Findings"
+            />
+            <AccessibleMetricTable
+              caption="Threat category values"
+              rows={data.threat_categories}
+              labelKey="category"
+              valueKeys={["finding_count", "affected_analyses"]}
+            />
+          </DashboardPanel>
+        )}
+        {mode === "analytics" && (
+          <DashboardPanel title="Policy actions">
+            <MetricBarChart
+              data={data.policy_actions}
+              categoryKey="action"
+              valueKey="count"
+              label="Decisions"
+            />
+            <AccessibleMetricTable
+              caption="Policy action values"
+              rows={data.policy_actions}
+              labelKey="action"
+              valueKeys={["count"]}
+            />
+          </DashboardPanel>
+        )}
         <DashboardPanel title="Incident status">
+          <div className="card-icon-label">
+            <SirenIcon size={18} weight="duotone" aria-hidden="true" /> Durable investigations
+          </div>
           <ul className="metric-list">
             {data.incidents.statuses.map((item) => (
               <li key={item.status}>
@@ -291,7 +317,9 @@ function DashboardBody({ data }: { data: Dashboard }) {
               <strong>{data.incidents.unassigned_open}</strong>
             </li>
           </ul>
-          <a href="#incident-queue">Open Incident Queue</a>
+          <a href="/incidents" className="inline-link">
+            Open incident queue <ArrowRightIcon size={15} />
+          </a>
         </DashboardPanel>
         <DashboardPanel title="Recent incidents">
           {data.recent_incidents.length === 0 ? (
@@ -313,48 +341,68 @@ function DashboardBody({ data }: { data: Dashboard }) {
             </ul>
           )}
         </DashboardPanel>
-        <DashboardPanel title="Provider usage" wide>
-          {data.providers.length === 0 ? (
-            <p className="muted">No Gateway provider calls.</p>
-          ) : (
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Provider / model</th>
-                    <th>Requests</th>
-                    <th>Completed</th>
-                    <th>Timeouts</th>
-                    <th>Errors</th>
-                    <th>Output enforcement</th>
-                    <th>Avg latency</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.providers.map((provider) => (
-                    <tr key={`${provider.provider_id}-${provider.configured_model}`}>
-                      <td>
-                        {provider.provider_name}
-                        <small>{provider.configured_model}</small>
-                      </td>
-                      <td>{provider.request_count}</td>
-                      <td>{provider.completed}</td>
-                      <td>{provider.provider_timeout}</td>
-                      <td>{provider.provider_error + provider.configuration_error}</td>
-                      <td>
-                        {provider.output_block +
-                          provider.output_review +
-                          provider.output_inspection_failure}
-                      </td>
-                      <td>{provider.average_latency_ms} ms</td>
+        {mode === "analytics" && (
+          <DashboardPanel title="Provider usage" wide>
+            {data.providers.length === 0 ? (
+              <p className="muted">No Gateway provider calls.</p>
+            ) : (
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Provider / model</th>
+                      <th>Requests</th>
+                      <th>Completed</th>
+                      <th>Timeouts</th>
+                      <th>Errors</th>
+                      <th>Output enforcement</th>
+                      <th>Avg latency</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </DashboardPanel>
+                  </thead>
+                  <tbody>
+                    {data.providers.map((provider) => (
+                      <tr key={`${provider.provider_id}-${provider.configured_model}`}>
+                        <td>
+                          {provider.provider_name}
+                          <small>{provider.configured_model}</small>
+                        </td>
+                        <td>{provider.request_count}</td>
+                        <td>{provider.completed}</td>
+                        <td>{provider.provider_timeout}</td>
+                        <td>{provider.provider_error + provider.configuration_error}</td>
+                        <td>
+                          {provider.output_block +
+                            provider.output_review +
+                            provider.output_inspection_failure}
+                        </td>
+                        <td>{provider.average_latency_ms} ms</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </DashboardPanel>
+        )}
       </div>
+      {mode === "overview" && (
+        <section className="insight-card">
+          <div className="icon-tile">
+            <ChartLineUpIcon size={22} weight="duotone" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="eyebrow">Operational guidance</p>
+            <h3>Follow deterministic signals first</h3>
+            <p>
+              Use incidents to investigate retained evidence. Optional AI Intelligence remains
+              advisory and visibly separated in the analyst workspace.
+            </p>
+          </div>
+          <a href="/incidents" className="button button-secondary">
+            Open analyst workspace
+          </a>
+        </section>
+      )}
       <p className="dashboard-footnote">
         Inclusive window: {new Date(data.filters.window_start).toLocaleString()} –{" "}
         {new Date(data.filters.window_end).toLocaleString()} · query {data.query_duration_ms} ms

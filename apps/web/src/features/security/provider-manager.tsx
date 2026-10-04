@@ -100,11 +100,14 @@ export function ProviderManager({
   };
 
   return (
-    <section className="subpanel" aria-labelledby="providers-heading">
-      <h3 id="providers-heading">Provider configurations</h3>
-      <p className="notice">
-        Credentials are encrypted at rest and are never displayed after submission.
-      </p>
+    <section className="surface-card" aria-labelledby="providers-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Encrypted connections</p>
+          <h2 id="providers-heading">Provider configurations</h2>
+          <p>Credentials are encrypted at rest and are never displayed after submission.</p>
+        </div>
+      </div>
       {providers.isPending && (
         <p role="status" aria-live="polite">
           Loading provider configurations…
@@ -116,7 +119,10 @@ export function ProviderManager({
         </p>
       )}
       {!providers.isPending && !providers.isError && providers.data?.items.length === 0 && (
-        <p className="muted">No provider configurations yet.</p>
+        <div className="empty-state">
+          <h3>No Gateway provider configured</h3>
+          <p>Add an OpenAI-compatible endpoint for this application environment.</p>
+        </div>
       )}
       <div className="provider-list">
         {providers.data?.items.map((provider) => (
@@ -167,7 +173,7 @@ export function ProviderManager({
       </div>
       {canManage && (
         <form className="provider-form" onSubmit={save} key={editing?.provider_id ?? "create"}>
-          <h4>{editing ? "Update provider" : "Create provider"}</h4>
+          <h3>{editing ? "Update provider" : "Create provider"}</h3>
           <div className="resource-grid">
             <label>
               Kind

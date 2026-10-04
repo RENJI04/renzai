@@ -22,25 +22,66 @@ type Activity = {
 };
 type Metric = Record<string, string | number>;
 
-const axis = { fill: "#9db0c4", fontSize: 12 };
+const axis = { fill: "#8fa4b8", fontSize: 11 };
+const tooltip = {
+  contentStyle: {
+    background: "#0d1927",
+    border: "1px solid #31506b",
+    borderRadius: "8px",
+    color: "#f3f7fb",
+    fontSize: "12px",
+  },
+  labelStyle: { color: "#c7d3df" },
+};
 
 export function ActivityChart({ data }: { data: Activity[] }) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <LineChart data={data} accessibilityLayer>
-        <CartesianGrid stroke="#263a50" strokeDasharray="3 3" />
+        <CartesianGrid stroke="#20364b" strokeDasharray="3 3" vertical={false} />
         <XAxis
           dataKey="bucket_start"
           tick={axis}
           tickFormatter={(value) => shortTime(String(value))}
         />
         <YAxis allowDecimals={false} tick={axis} />
-        <Tooltip labelFormatter={(value) => new Date(String(value)).toLocaleString()} />
+        <Tooltip
+          {...tooltip}
+          labelFormatter={(value) => new Date(String(value)).toLocaleString()}
+        />
         <Legend />
-        <Line dataKey="analysis_count" name="Analyses" stroke="#51dfb6" dot={false} />
-        <Line dataKey="threat_count" name="Threats" stroke="#ffad66" dot={false} />
-        <Line dataKey="blocked_count" name="Blocked" stroke="#ff7a7a" dot={false} />
-        <Line dataKey="review_count" name="Review" stroke="#f2d56b" dot={false} />
+        <Line
+          dataKey="analysis_count"
+          name="Analyses"
+          stroke="#32dfca"
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+        />
+        <Line
+          dataKey="threat_count"
+          name="Threats"
+          stroke="#ff9a67"
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+        />
+        <Line
+          dataKey="blocked_count"
+          name="Blocked"
+          stroke="#ff6e7f"
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+        />
+        <Line
+          dataKey="review_count"
+          name="Review"
+          stroke="#f6ba59"
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+        />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -60,11 +101,17 @@ export function MetricBarChart({
   return (
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={data} accessibilityLayer>
-        <CartesianGrid stroke="#263a50" strokeDasharray="3 3" />
+        <CartesianGrid stroke="#20364b" strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey={categoryKey} tick={axis} />
         <YAxis allowDecimals={false} tick={axis} />
-        <Tooltip />
-        <Bar dataKey={valueKey} name={label} fill="#51dfb6" />
+        <Tooltip {...tooltip} />
+        <Bar
+          dataKey={valueKey}
+          name={label}
+          fill="#32dfca"
+          radius={[4, 4, 0, 0]}
+          isAnimationActive={false}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
