@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import socket
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from redis.asyncio import from_url
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 
@@ -19,6 +22,7 @@ from renzai.db.session import Database
 from renzai.infrastructure.crypto.application_keys import ApplicationKeyCrypto
 from renzai.infrastructure.crypto.identity import IdentityCrypto
 from renzai.infrastructure.redis.client import RedisClient
+from renzai.modules.ai_intelligence.application import process_ai_request
 from renzai.modules.ai_intelligence.models import (
     AIIntelligenceConfiguration,
     AIIntelligenceRequest,
@@ -28,6 +32,7 @@ from renzai.modules.analytics.application import AnalyticsService
 from renzai.modules.analytics.domain import AnalyticsWindow
 from renzai.modules.api_keys.models import ApplicationApiKey
 from renzai.modules.applications.models import Application
+from renzai.modules.auth.rate_limit import RedisAuthRateLimiter, RedisSessionRateLimiter
 from renzai.modules.environments.models import Environment
 from renzai.modules.gateway.models import GatewayProviderCall
 from renzai.modules.gateway.rate_limit import RedisGatewayRateLimiter
@@ -46,6 +51,8 @@ from renzai.modules.users.models import User
 
 
 @pytest.mark.integration
+@pytest.mark.postgresql
+@pytest.mark.concurrency
 async def test_postgresql_phase11_ai_idempotency_tenant_and_cascade_constraints() -> None:
     database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
     if not database_url:
@@ -255,6 +262,172 @@ async def test_postgresql_phase11_ai_idempotency_tenant_and_cascade_constraints(
 
 
 @pytest.mark.integration
+@pytest.mark.postgresql
+@pytest.mark.concurrency
+async def test_postgresql_ai_worker_claim_and_result_are_single_owner() -> None:
+    database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("set RENZAI_TEST_DATABASE_URL to run PostgreSQL AI worker concurrency")
+    if not database_url.startswith("postgresql+asyncpg://"):
+        pytest.fail("RENZAI_TEST_DATABASE_URL must be an asyncpg PostgreSQL URL")
+    database = Database(DatabaseConfig(url=database_url, pool_size=4, max_overflow=0))
+    user_id = new_uuid7()
+    organization_id = new_uuid7()
+    incident_id = new_uuid7()
+    config_id = new_uuid7()
+    request_id = new_uuid7()
+
+    class DeterministicProvider:
+        calls = 0
+
+        async def generate(
+            self, *, config: object, task_type: object, context: dict[str, object]
+        ) -> tuple[str, dict[str, int]]:
+            self.calls += 1
+            await asyncio.sleep(0.05)
+            return (
+                json.dumps({"summary": "Live worker claim result.", "key_points": ["One owner."]}),
+                {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            )
+
+    provider = DeterministicProvider()
+    duplicate_result_rejected = False
+    try:
+        async with database.session() as setup:
+            setup.add(
+                User(
+                    user_id=user_id,
+                    email=f"worker-{user_id}@example.test",
+                    normalized_email=f"worker-{user_id}@example.test",
+                )
+            )
+            setup.add(
+                Organization(
+                    organization_id=organization_id,
+                    name="Phase 14 worker claim",
+                    slug=f"phase14-worker-{str(organization_id)[:10]}",
+                    settings={"audit_retention_days": 365},
+                )
+            )
+            await setup.flush()
+            setup.add(
+                Membership(
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    role="owner",
+                    status="active",
+                )
+            )
+            setup.add(
+                Incident(
+                    incident_id=incident_id,
+                    organization_id=organization_id,
+                    status="open",
+                    severity="medium",
+                    source="manual",
+                    title="Worker claim",
+                    safe_summary="Safe synthetic summary.",
+                    version=1,
+                    privacy_mode="METADATA_ONLY",
+                )
+            )
+            setup.add(
+                AIIntelligenceConfiguration(
+                    config_id=config_id,
+                    organization_id=organization_id,
+                    name="Worker provider",
+                    name_key="worker provider",
+                    kind="openai_compatible_local",
+                    base_url="http://127.0.0.1:11434",
+                    model="deterministic-test",
+                    status="active",
+                )
+            )
+            await setup.flush()
+            setup.add(
+                AIIntelligenceRequest(
+                    request_id=request_id,
+                    organization_id=organization_id,
+                    incident_id=incident_id,
+                    config_id=config_id,
+                    requested_by_user_id=user_id,
+                    task_type="incident_summary",
+                    status="pending",
+                    context_mode="metadata_only",
+                    incident_version=1,
+                    idempotency_key="phase14-worker-claim",
+                )
+            )
+            await setup.commit()
+
+        async def execute_worker() -> str:
+            async with database.session() as worker_session:
+                result = await process_ai_request(
+                    worker_session, provider, organization_id, request_id
+                )
+                return result.status
+
+        outcomes = await asyncio.gather(execute_worker(), execute_worker())
+        assert outcomes.count("completed") == 1
+        assert set(outcomes).issubset({"running", "completed"})
+        assert provider.calls == 1
+        async with database.session() as verify:
+            assert (
+                await verify.scalar(
+                    select(AIIntelligenceRequest.status).where(
+                        AIIntelligenceRequest.request_id == request_id
+                    )
+                )
+                == "completed"
+            )
+            assert (
+                await verify.scalar(
+                    select(func.count())
+                    .select_from(AIIntelligenceResult)
+                    .where(AIIntelligenceResult.request_id == request_id)
+                )
+                == 1
+            )
+
+        async with database.session() as duplicate:
+            duplicate.add(
+                AIIntelligenceResult(
+                    organization_id=organization_id,
+                    request_id=request_id,
+                    config_id=config_id,
+                    model="deterministic-test",
+                    prompt_template_version="incident-summary-v1",
+                    input_context_version="1.0.0",
+                    output_schema_version="1.0.0",
+                    structured_payload={"summary": "Duplicate", "key_points": []},
+                )
+            )
+            try:
+                await duplicate.commit()
+            except IntegrityError:
+                duplicate_result_rejected = True
+                await duplicate.rollback()
+        assert duplicate_result_rejected is True
+
+        async with database.session() as duplicate_delivery:
+            repeated = await process_ai_request(
+                duplicate_delivery, provider, organization_id, request_id
+            )
+        assert repeated.status == "completed"
+        assert provider.calls == 1
+    finally:
+        async with database.session() as cleanup:
+            await cleanup.execute(delete(Incident).where(Incident.incident_id == incident_id))
+            await cleanup.execute(
+                delete(Organization).where(Organization.organization_id == organization_id)
+            )
+            await cleanup.execute(delete(User).where(User.user_id == user_id))
+            await cleanup.commit()
+        await database.close()
+
+
+@pytest.mark.integration
+@pytest.mark.postgresql
 async def test_postgresql_ping_when_explicit_test_url_is_configured() -> None:
     database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
     if not database_url:
@@ -269,31 +442,110 @@ async def test_postgresql_ping_when_explicit_test_url_is_configured() -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.redis
 async def test_redis_ping_when_explicit_test_url_is_configured() -> None:
     redis_url = os.environ.get("RENZAI_TEST_REDIS_URL")
     if not redis_url:
         pytest.skip("set RENZAI_TEST_REDIS_URL to run Redis connectivity")
     client = RedisClient(RedisConfig(url=redis_url, required_for_readiness=True))
+    inspector = from_url(redis_url, decode_responses=True)
+    identity_crypto = IdentityCrypto("phase14-redis-test-root-material-0001", "v1")
+    key_crypto = ApplicationKeyCrypto("phase14-app-key-root-material-000001", "v1")
+    suffix = str(new_uuid7())
+    raw_values = {
+        "password": f"RawPassword-{suffix}!",
+        "token": f"reset-token-{suffix}",
+        "session": f"session-token-{suffix}",
+        "api_key": f"rz_prd_synthetic-{suffix}",
+    }
+    buckets = {
+        "auth": identity_crypto.rate_limit_identifier(
+            f"login:user@example.test:{raw_values['password']}"
+        ),
+        "reset": identity_crypto.rate_limit_identifier(
+            f"reset:user@example.test:{raw_values['token']}"
+        ),
+        "session": identity_crypto.rate_limit_identifier(
+            f"session:user-id:{raw_values['session']}"
+        ),
+        "analyze": key_crypto.rate_limit_identifier(f"analyze:{raw_values['api_key']}"),
+        "gateway": key_crypto.rate_limit_identifier(f"gateway:{raw_values['api_key']}"),
+    }
+    expected_keys = {
+        f"renzai:auth-rate:v1:{buckets['auth']}",
+        f"renzai:auth-rate:v1:{buckets['reset']}",
+        f"renzai:session-rate:v1:{buckets['session']}",
+        f"renzai:analyze-rate:v1:{buckets['analyze']}",
+        f"renzai:gateway-rate:v1:{buckets['gateway']}",
+    }
     try:
         assert await client.ping() is True
-        bucket = f"integration-{new_uuid7()}"
+        bucket = f"integration:{suffix}"
         assert await client.increment_window(bucket, 5) == 1
         assert await client.increment_window(bucket, 5) == 2
         limiter = RedisAnalyzeRateLimiter(client, requests=1, window_seconds=5)
-        await limiter.check(f"analyze-{bucket}")
+        await limiter.check(buckets["analyze"])
         with pytest.raises(RenzaiError) as error:
-            await limiter.check(f"analyze-{bucket}")
+            await limiter.check(buckets["analyze"])
         assert error.value.code == "rate_limit"
         gateway_limiter = RedisGatewayRateLimiter(client, requests=1, window_seconds=5)
-        await gateway_limiter.check(f"gateway-{bucket}")
+        await gateway_limiter.check(buckets["gateway"])
         with pytest.raises(RenzaiError) as gateway_error:
-            await gateway_limiter.check(f"gateway-{bucket}")
+            await gateway_limiter.check(buckets["gateway"])
         assert gateway_error.value.code == "rate_limit"
+        auth_limiter = RedisAuthRateLimiter(client, attempts=1, window_seconds=5)
+        for name in ("auth", "reset"):
+            await auth_limiter.check(buckets[name])
+            with pytest.raises(RenzaiError) as auth_error:
+                await auth_limiter.check(buckets[name])
+            assert auth_error.value.code == "rate_limit"
+        session_limiter = RedisSessionRateLimiter(client, requests=1, window_seconds=5)
+        await session_limiter.check(buckets["session"])
+        with pytest.raises(RenzaiError) as session_error:
+            await session_limiter.check(buckets["session"])
+        assert session_error.value.code == "rate_limit"
+
+        # Keyed identifiers deliberately remove the UUID suffix too, so inspect exact keys.
+        stored = {key for key in expected_keys if await inspector.exists(key)}
+        assert stored == expected_keys
+        serialized_keys = "\n".join(stored)
+        assert all(value not in serialized_keys for value in raw_values.values())
+        assert "user@example.test" not in serialized_keys
+
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            unavailable_port = listener.getsockname()[1]
+        unavailable = RedisClient(
+            RedisConfig(
+                url=(
+                    f"redis://127.0.0.1:{unavailable_port}/15"
+                    "?socket_connect_timeout=0.2&socket_timeout=0.2"
+                ),
+                required_for_readiness=True,
+            )
+        )
+        try:
+            unavailable_limiters = (
+                RedisAuthRateLimiter(unavailable, attempts=1, window_seconds=1),
+                RedisSessionRateLimiter(unavailable, requests=1, window_seconds=1),
+                RedisAnalyzeRateLimiter(unavailable, requests=1, window_seconds=1),
+                RedisGatewayRateLimiter(unavailable, requests=1, window_seconds=1),
+            )
+            for unavailable_limiter in unavailable_limiters:
+                with pytest.raises(RenzaiError) as unavailable_error:
+                    await unavailable_limiter.check("keyed-test-bucket")
+                assert unavailable_error.value.code == "rate_limit"
+        finally:
+            await unavailable.close()
     finally:
+        await inspector.delete(bucket, *expected_keys)
+        await inspector.aclose()
         await client.close()
 
 
 @pytest.mark.integration
+@pytest.mark.postgresql
+@pytest.mark.concurrency
 async def test_postgresql_serializes_competing_owner_demotions() -> None:
     database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
     if not database_url:
@@ -399,6 +651,7 @@ async def test_postgresql_serializes_competing_owner_demotions() -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.postgresql
 async def test_postgresql_phase6_constraints_and_analysis_persistence() -> None:
     database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
     if not database_url:
@@ -557,6 +810,8 @@ async def test_postgresql_phase6_constraints_and_analysis_persistence() -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.postgresql
+@pytest.mark.concurrency
 async def test_postgresql_phase7_duplicate_priority_race() -> None:
     database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
     if not database_url:
@@ -638,6 +893,7 @@ async def test_postgresql_phase7_duplicate_priority_race() -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.postgresql
 async def test_postgresql_phase8_provider_constraints() -> None:
     database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
     if not database_url:
@@ -774,6 +1030,8 @@ async def test_postgresql_phase8_provider_constraints() -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.postgresql
+@pytest.mark.concurrency
 async def test_postgresql_phase9_incident_deduplication_and_status_concurrency() -> None:
     database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
     if not database_url:
@@ -939,6 +1197,7 @@ async def test_postgresql_phase9_incident_deduplication_and_status_concurrency()
 
 
 @pytest.mark.integration
+@pytest.mark.postgresql
 async def test_postgresql_phase10_bucketing_distinct_counts_filters_and_tenant_scope() -> None:
     database_url = os.environ.get("RENZAI_TEST_DATABASE_URL")
     if not database_url:

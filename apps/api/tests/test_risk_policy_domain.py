@@ -12,7 +12,12 @@ from renzai.modules.policies.domain import (
     PolicyValidationError,
     evaluate_policies,
 )
-from renzai.modules.risk.domain import RiskFinding, evaluate_risk, renzai_v1_profile
+from renzai.modules.risk.domain import (
+    RiskFinding,
+    evaluate_risk,
+    renzai_v1_profile,
+    severity_for_score,
+)
 from renzai.modules.security.domain.types import Category, Direction
 
 
@@ -110,6 +115,36 @@ def test_corroboration_overlap_caps_rounding_and_no_third_addition() -> None:
         risk_finding(Category.DATA_EXFILTRATION_INDICATOR, 100, start=20, end=28),
     ]
     assert evaluate_risk(capped, renzai_v1_profile()).risk_score == 100
+
+
+def test_risk_contributions_are_exactly_ordered_and_severity_boundaries_are_stable() -> None:
+    findings = [
+        risk_finding(Category.SUSPICIOUS_URL, 50, detector_id="test.low", start=0, end=4),
+        risk_finding(
+            Category.PROMPT_INJECTION,
+            100,
+            detector_id="test.high",
+            start=10,
+            end=14,
+        ),
+    ]
+    result = evaluate_risk(findings, renzai_v1_profile())
+    assert [item.detector_id for item in result.contributions] == ["test.high", "test.low"]
+    assert [(item.raw_contribution, item.retained) for item in result.contributions] == [
+        (55, True),
+        (10, True),
+    ]
+    assert result.risk_score == 60
+    assert result.severity.value == "high"
+
+    assert severity_for_score(0).value == "low"
+    assert severity_for_score(24).value == "low"
+    assert severity_for_score(25).value == "medium"
+    assert severity_for_score(49).value == "medium"
+    assert severity_for_score(50).value == "high"
+    assert severity_for_score(74).value == "high"
+    assert severity_for_score(75).value == "critical"
+    assert severity_for_score(100).value == "critical"
 
 
 def condition(field: str, operator: str, value: object) -> PolicyCondition:

@@ -12,6 +12,7 @@
     "format:check": "prettier --check src next.config.ts package.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "recharts": "3.7.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "5.0.1",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.9.1",

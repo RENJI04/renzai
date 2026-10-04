@@ -12,3 +12,9 @@ when complete. Build the TypeScript SDK before running it.
 `benchmark_phase13.py` measures the maximum Analyze input, a candidate-heavy normalization input,
 and a 32-message Gateway inspection payload. It is an adversarial local regression measurement,
 not a production SLA.
+
+`run_phase14_tests.py` provides stable Windows/POSIX profiles for fast, full, live-service, E2E,
+coverage, SDK, compatibility, and release-candidate checks. `verify_phase14_frontend_backend.py`
+starts the real API and Next server on free loopback ports and verifies the same-origin rewrite,
+session cookie, CSRF write, and tenant read without external services. The enhanced Phase 12
+compatibility verifier also compares Python and TypeScript Analyze semantics.

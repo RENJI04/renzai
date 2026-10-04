@@ -105,6 +105,19 @@ export function ProviderManager({
       <p className="notice">
         Credentials are encrypted at rest and are never displayed after submission.
       </p>
+      {providers.isPending && (
+        <p role="status" aria-live="polite">
+          Loading provider configurations…
+        </p>
+      )}
+      {providers.isError && (
+        <p className="error" role="alert">
+          {message(providers.error)}
+        </p>
+      )}
+      {!providers.isPending && !providers.isError && providers.data?.items.length === 0 && (
+        <p className="muted">No provider configurations yet.</p>
+      )}
       <div className="provider-list">
         {providers.data?.items.map((provider) => (
           <article key={provider.provider_id}>

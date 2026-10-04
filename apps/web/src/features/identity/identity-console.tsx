@@ -54,7 +54,9 @@ export function IdentityConsole() {
   if (sessionQuery.isPending) {
     return (
       <main className="centered">
-        <p>Loading your workspace…</p>
+        <p role="status" aria-live="polite">
+          Loading your workspace…
+        </p>
       </main>
     );
   }
@@ -139,7 +141,11 @@ function AuthCard({ onAuthenticated }: { onAuthenticated: () => Promise<void> })
                   : "Request reset"}
           </button>
         </form>
-        {notice && <p className="notice">{notice}</p>}
+        {notice && (
+          <p className="notice" role="status" aria-live="polite">
+            {notice}
+          </p>
+        )}
         <button
           className="text-button"
           onClick={() => {
@@ -239,8 +245,18 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
                 }))
               }
             >
-              <input name="name" placeholder="Organization name" required />
-              <input name="slug" placeholder="organization-slug" required />
+              <input
+                aria-label="Organization name"
+                name="name"
+                placeholder="Organization name"
+                required
+              />
+              <input
+                aria-label="Organization slug"
+                name="slug"
+                placeholder="organization-slug"
+                required
+              />
               <button className="primary">Create</button>
             </form>
           </details>
@@ -254,7 +270,7 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
                 }))
               }
             >
-              <input name="token" placeholder="rziv_…" required />
+              <input aria-label="Invitation token" name="token" placeholder="rziv_…" required />
               <button className="primary">Accept</button>
             </form>
           </details>
@@ -317,8 +333,14 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
                       }))
                     }
                   >
-                    <input name="email" type="email" placeholder="person@example.com" required />
-                    <select name="role" defaultValue="viewer">
+                    <input
+                      aria-label="Invitee email"
+                      name="email"
+                      type="email"
+                      placeholder="person@example.com"
+                      required
+                    />
+                    <select aria-label="Invitation role" name="role" defaultValue="viewer">
                       <option value="viewer">Viewer</option>
                       <option value="developer">Developer</option>
                       <option value="security_analyst">Security analyst</option>
@@ -390,6 +412,7 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
               }
             >
               <input
+                aria-label="Current password"
                 name="current_password"
                 type="password"
                 autoComplete="current-password"
@@ -397,6 +420,7 @@ function Workspace({ session, onLoggedOut }: { session: Session; onLoggedOut: ()
                 required
               />
               <input
+                aria-label="New password"
                 name="new_password"
                 type="password"
                 autoComplete="new-password"

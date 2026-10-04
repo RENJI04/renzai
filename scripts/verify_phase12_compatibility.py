@@ -155,6 +155,17 @@ def main() -> None:
                     analysis = client.analyze(content="Safe synthetic example", direction="input")
                     if not analysis.request_id or not analysis.analysis_id:
                         raise RuntimeError("Python Analyze omitted identifiers")
+                    python_analysis = {
+                        "safe": analysis.safe,
+                        "noDetectedThreat": analysis.no_detected_threat,
+                        "action": analysis.action.value,
+                        "riskScore": analysis.risk_score,
+                        "severity": analysis.severity.value,
+                        "confidence": analysis.confidence,
+                        "normalizationVersion": analysis.normalization_version,
+                        "detectorRulesetVersion": analysis.detector_ruleset_version,
+                        "detectors": sorted(finding.detector_id for finding in analysis.findings),
+                    }
                     try:
                         client.gateway.create(
                             model="safe-model",
@@ -204,6 +215,17 @@ const analysis = await client.analyze({{
 if (!analysis.requestId || !analysis.analysisId) {{
   throw new Error("TypeScript Analyze omitted identifiers");
 }}
+const analysisSemantics = {{
+  safe: analysis.safe,
+  noDetectedThreat: analysis.noDetectedThreat,
+  action: analysis.action,
+  riskScore: analysis.riskScore,
+  severity: analysis.severity,
+  confidence: analysis.confidence,
+  normalizationVersion: analysis.normalizationVersion,
+  detectorRulesetVersion: analysis.detectorRulesetVersion,
+  detectors: analysis.findings.map((finding) => finding.detectorId).sort(),
+}};
 let gatewayFailedSafely = false;
 try {{
   await client.gateway.create({{
@@ -225,7 +247,12 @@ const incident = await session.getIncident(
 if (incident.incidentId !== process.env.RENZAI_INCIDENT_ID) {{
   throw new Error("TypeScript incident mismatch");
 }}
-console.log(JSON.stringify({{ analyze: "ok", gatewayError: "ok", incident: "ok" }}));
+console.log(JSON.stringify({{
+  analyze: "ok",
+  analysisSemantics,
+  gatewayError: "ok",
+  incident: "ok",
+}}));
 """
             environment = {
                 **os.environ,
@@ -248,13 +275,21 @@ console.log(JSON.stringify({{ analyze: "ok", gatewayError: "ok", incident: "ok" 
                 text=True,
                 timeout=30,
             )
+            typescript_result = json.loads(completed.stdout)
+            if typescript_result.get("analysisSemantics") != python_analysis:
+                raise RuntimeError(
+                    "Python and TypeScript SDKs returned different Analyze semantics: "
+                    f"python={python_analysis!r} typescript="
+                    f"{typescript_result.get('analysisSemantics')!r}"
+                )
             print(
                 json.dumps(
                     {
+                        "cross_sdk_analyze_semantics": python_analysis,
                         "python_analyze": "ok",
                         "python_gateway_error": "ok",
                         "python_incident": "ok",
-                        "typescript": json.loads(completed.stdout),
+                        "typescript": typescript_result,
                     }
                 )
             )

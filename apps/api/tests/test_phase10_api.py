@@ -193,6 +193,7 @@ async def seed_dashboard(
         )
 
 
+@pytest.mark.e2e
 def test_dashboard_exact_metrics_and_bounded_safe_response(
     phase10_client: tuple[TestClient, Settings, FakeProvider],
 ) -> None:

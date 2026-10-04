@@ -9,6 +9,36 @@ describe("identity page", () => {
     vi.restoreAllMocks();
   });
 
+  it("announces loading and password-reset feedback to assistive technology", async () => {
+    let sessionResolved = false;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const path = String(input);
+      if (path.endsWith("/auth/session") && !sessionResolved) {
+        sessionResolved = true;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return errorResponse("authentication", "Authentication is required.", 401);
+      }
+      if (path.endsWith("/auth/password/reset/request") && init?.method === "POST") {
+        return jsonResponse({ accepted: true }, 202);
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    render(
+      <QueryProvider>
+        <HomePage />
+      </QueryProvider>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Loading your workspace");
+    fireEvent.click(await screen.findByRole("button", { name: "Forgot your password?" }));
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "reset@example.test" },
+    });
+    fireEvent.submit(screen.getByRole("button", { name: "Request reset" }).closest("form")!);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "If that account exists, password reset instructions are ready.",
+    );
+  });
+
   it("shows the sign-in experience when there is no session", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
@@ -105,6 +135,15 @@ describe("identity page", () => {
       </QueryProvider>,
     );
     expect(await screen.findByRole("heading", { name: "Alpha" })).toBeVisible();
+    fireEvent.click(screen.getByText("New organization"));
+    expect(screen.getByLabelText("Organization name")).toBeVisible();
+    expect(screen.getByLabelText("Organization slug")).toBeVisible();
+    fireEvent.click(screen.getByText("Accept invitation"));
+    expect(screen.getByLabelText("Invitation token")).toBeVisible();
+    expect(screen.getByLabelText("Invitee email")).toBeVisible();
+    expect(screen.getByLabelText("Invitation role")).toBeVisible();
+    expect(screen.getByLabelText("Current password")).toBeVisible();
+    expect(screen.getByLabelText("New password")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Invite a member" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /Beta/ }));
     expect(await screen.findByRole("heading", { name: "Beta" })).toBeVisible();

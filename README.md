@@ -2,7 +2,7 @@
 
 **Open-Source AI Security & Observability Platform**
 
-Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, policy decisions, incident investigation, privacy-safe operational analytics, optional advisory AI incident intelligence, and local typed integration SDKs. Renzai is currently at **Phase 13 security hardening**.
+Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, policy decisions, incident investigation, privacy-safe operational analytics, optional advisory AI incident intelligence, and local typed integration SDKs. Renzai is currently at **Phase 14 comprehensive testing and assurance**.
 
 ## Goals and principles
 
@@ -14,15 +14,15 @@ Renzai is a self-hostable platform for analyzing and governing LLM-application t
 
 ## Roadmap
 
-Phases 1–3 define product, architecture, and contracts; Phases 4–10 implement the deterministic platform, Gateway, incidents, and analytics; Phase 11 adds optional asynchronous AI-generated incident intelligence; Phase 12 adds Python and TypeScript API v1 clients; Phase 13 performs cross-cutting security hardening without adding product scope. Notifications, webhooks, agents, and advanced provider protocol features remain later work.
+Phases 1–3 define product, architecture, and contracts; Phases 4–10 implement the deterministic platform, Gateway, incidents, and analytics; Phase 11 adds optional asynchronous AI-generated incident intelligence; Phase 12 adds Python and TypeScript API v1 clients; Phase 13 performs cross-cutting security hardening; and Phase 14 adds comprehensive test, live-service, concurrency, compatibility, coverage, and performance evidence without expanding product scope. Notifications, webhooks, agents, and advanced provider protocol features remain later work.
 
 ## Documentation
 
-The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), [Phase 8](docs/phase-08/10-phase-08-review.md), [Phase 9](docs/phase-09/10-phase-09-review.md), [Phase 10](docs/phase-10/10-phase-10-review.md), [Phase 11](docs/phase-11/10-phase-11-review.md), [Phase 12](docs/phase-12/10-phase-12-review.md), and [Phase 13](docs/phase-13/10-phase-13-review.md).
+The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), [Phase 8](docs/phase-08/10-phase-08-review.md), [Phase 9](docs/phase-09/10-phase-09-review.md), [Phase 10](docs/phase-10/10-phase-10-review.md), [Phase 11](docs/phase-11/10-phase-11-review.md), [Phase 12](docs/phase-12/10-phase-12-review.md), [Phase 13](docs/phase-13/10-phase-13-review.md), and [Phase 14](docs/phase-14/10-phase-14-review.md).
 
 ## Implemented platform boundary
 
-Phase 13 preserves the prior deterministic platform, optional advisory AI intelligence, and local `renzai-sdk` and `@renzai/sdk` API v1 packages while strengthening auth/session, input/network, browser, logging, dependency, and SDK boundaries. SDKs are not published to PyPI or npm. Renzai still does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, notifications, webhooks, autonomous remediation, or agents.
+Phase 14 verifies the deterministic platform, optional advisory AI intelligence, and local `renzai-sdk` and `@renzai/sdk` API v1 packages across unit, contract, E2E, live PostgreSQL/Redis, concurrency, compatibility, coverage, and performance layers. SDKs are not published to PyPI or npm. Renzai still does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, notifications, webhooks, autonomous remediation, or agents.
 
 ## Repository layout
 
@@ -35,6 +35,7 @@ Phase 13 preserves the prior deterministic platform, optional advisory AI intell
 - `docs/phase-11` — AI architecture, privacy, task contracts, security, traceability, and review.
 - `docs/phase-12` — SDK architecture, usage, security, testing, traceability, and review.
 - `docs/phase-13` — threat refresh, hardening evidence, findings register, traceability, and review.
+- `docs/phase-14` — test strategy, inventory, traceability, coverage, live-service evidence, gaps, and review.
 - `docs/development` — local setup and command reference.
 
 ## Local development

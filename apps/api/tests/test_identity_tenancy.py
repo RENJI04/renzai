@@ -75,6 +75,7 @@ def run_db[T](settings: Settings, operation: Callable[[AsyncSession], Awaitable[
     return asyncio.run(execute())
 
 
+@pytest.mark.e2e
 def test_registration_session_logout_and_csrf(identity_client: tuple[TestClient, Settings]) -> None:
     client, _ = identity_client
     body = register(client, " Alice@Example.COM ")
@@ -111,6 +112,7 @@ def test_login_is_generic_and_duplicate_email_conflicts(
     assert failed.json()["error"]["message"] == "Authentication is required."
 
 
+@pytest.mark.e2e
 def test_password_reset_is_single_use_and_revokes_sessions(
     identity_client: tuple[TestClient, Settings],
 ) -> None:
@@ -145,6 +147,7 @@ def test_password_reset_is_single_use_and_revokes_sessions(
     )
 
 
+@pytest.mark.e2e
 def test_password_change_rotates_current_and_revokes_other_sessions(
     identity_client: tuple[TestClient, Settings],
 ) -> None:

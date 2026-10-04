@@ -25,9 +25,11 @@
     "format": "prettier --write src tests *.json *.js README.md",
     "format:check": "prettier --check src tests *.json *.js README.md",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "5.0.1",
     "@eslint/js": "^9.39.5",
     "@types/node": "^24.10.0",
     "eslint": "^9.39.5",

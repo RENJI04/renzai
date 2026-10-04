@@ -196,6 +196,7 @@ def test_analyze_does_not_implicitly_create_incidents(
     assert run_db(settings, persisted_incidents) == []
 
 
+@pytest.mark.e2e
 def test_manual_queue_filter_cursor_detail_comment_and_lifecycle(
     phase9_client: tuple[TestClient, Settings, FakeProvider],
 ) -> None:
@@ -342,6 +343,7 @@ def test_all_status_transition_rules(
         ("viewer", False, False),
     ],
 )
+@pytest.mark.e2e
 def test_incident_rbac_matrix(
     phase9_client: tuple[TestClient, Settings, FakeProvider],
     role: str,

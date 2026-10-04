@@ -110,6 +110,7 @@ def analyze(client: TestClient, key: str, content: str, direction: str = "input"
     )
 
 
+@pytest.mark.e2e
 def test_application_environment_and_key_lifecycle(
     phase6_client: tuple[TestClient, Settings],
 ) -> None:

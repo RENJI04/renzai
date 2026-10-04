@@ -317,6 +317,7 @@ def test_provider_api_normalizes_unsafe_target_as_validation_error(
     assert fake.calls == 0
 
 
+@pytest.mark.e2e
 def test_gateway_sanitizes_forwards_inspects_redacts_and_persists(
     phase8_client: tuple[TestClient, Settings, FakeProvider],
 ) -> None:

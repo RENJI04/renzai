@@ -29,6 +29,7 @@ dependencies = [
 dev = [
   "aiosqlite>=0.21,<1",
   "mypy>=1.15,<2",
+  "pytest-cov>=7,<8",
   "pytest>=9.0.3,<10",
   "pytest-asyncio>=1.4,<2",
   "ruff>=0.11,<1",
@@ -70,4 +71,9 @@ testpaths = ["apps/api/tests", "workers/tests"]
 asyncio_mode = "auto"
 markers = [
   "integration: requires an explicitly configured local PostgreSQL or Redis service",
+  "postgresql: requires an explicitly configured disposable PostgreSQL database",
+  "redis: requires an explicitly configured disposable Redis database",
+  "e2e: exercises a realistic workflow across public module boundaries",
+  "concurrency: exercises a database-backed race or ownership invariant",
+  "slow: intentionally broader or slower assurance coverage",
 ]

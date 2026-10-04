@@ -193,6 +193,8 @@ def request_ai(
     return response.json()
 
 
+@pytest.mark.e2e
+@pytest.mark.slow
 def test_all_ai_tasks_are_async_validated_versioned_and_advisory(
     phase11_client: tuple[TestClient, Settings, FakeProvider, FakeAIProvider],
 ) -> None:

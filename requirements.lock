@@ -16,6 +16,7 @@ click-plugins==1.1.1.2
 click-repl==0.4.0
 click==8.5.0
 colorama==0.4.6
+coverage==7.16.2
 cryptography==50.0.2
 fastapi==0.141.1
 greenlet==3.5.6
@@ -41,6 +42,7 @@ pydantic-settings==2.15.0
 pydantic==2.13.5
 Pygments==2.21.0
 pytest-asyncio==1.4.0
+pytest-cov==7.1.0
 pytest==9.1.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.3
