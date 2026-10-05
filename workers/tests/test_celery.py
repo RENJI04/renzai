@@ -18,6 +18,8 @@ def test_celery_uses_safe_serializers_and_diagnostic_task() -> None:
     assert celery_app.conf.task_serializer == "json"
     assert celery_app.conf.result_serializer == "json"
     assert celery_app.conf.accept_content == ["json"]
+    assert celery_app.conf.worker_send_task_events is True
+    assert celery_app.conf.task_send_sent_event is True
     assert echo_request_id.run("worker-test") == {"status": "ok", "request_id": "worker-test"}
     assert process_ai_intelligence.name == "renzai.ai_intelligence.process"
     assert process_ai_intelligence.max_retries == 0

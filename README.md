@@ -2,7 +2,7 @@
 
 **Open-Source AI Security & Observability Platform**
 
-Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, policy decisions, incident investigation, privacy-safe operational analytics, optional advisory AI incident intelligence, and local typed integration SDKs. **Phase 15A — UI/UX & Product Polish is complete. Phase 15B has not started.**
+Renzai is a self-hostable platform for analyzing and governing LLM-application traffic. It provides explainable, deterministic security detection, risk scoring, policy decisions, incident investigation, privacy-safe operational analytics, optional advisory AI incident intelligence, and local typed integration SDKs. **Phase 15B — Observability & DevOps is complete. Phase 16 has not started.**
 
 ## Goals and principles
 
@@ -14,15 +14,15 @@ Renzai is a self-hostable platform for analyzing and governing LLM-application t
 
 ## Roadmap
 
-Phases 1–3 define product, architecture, and contracts; Phases 4–10 implement the deterministic platform, Gateway, incidents, and analytics; Phase 11 adds optional asynchronous AI-generated incident intelligence; Phase 12 adds Python and TypeScript API v1 clients; Phase 13 performs cross-cutting security hardening; and Phase 14 adds comprehensive test, live-service, concurrency, compatibility, coverage, and performance evidence without expanding product scope. Phase 15A completes the professional UI/UX, information architecture, branding, responsive design, accessibility, and product-polish pass. Phase 15B — Observability & DevOps has not started. Notifications, webhooks, agents, and advanced provider protocol features remain later work.
+Phases 1–3 define product, architecture, and contracts; Phases 4–10 implement the deterministic platform, Gateway, incidents, and analytics; Phase 11 adds optional asynchronous AI-generated incident intelligence; Phase 12 adds Python and TypeScript API v1 clients; Phase 13 performs cross-cutting security hardening; and Phase 14 adds comprehensive test, live-service, concurrency, compatibility, coverage, and performance evidence without expanding product scope. Phase 15A completes the professional UI/UX, information architecture, branding, responsive design, accessibility, and product-polish pass. Phase 15B completes production containerization, self-hosted orchestration, bounded observability, CI assurance, operator documentation, and live local-stack verification. Phase 16 has not started. Notifications, webhooks, agents, and advanced provider protocol features remain later work.
 
 ## Documentation
 
-The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), [Phase 8](docs/phase-08/10-phase-08-review.md), [Phase 9](docs/phase-09/10-phase-09-review.md), [Phase 10](docs/phase-10/10-phase-10-review.md), [Phase 11](docs/phase-11/10-phase-11-review.md), [Phase 12](docs/phase-12/10-phase-12-review.md), [Phase 13](docs/phase-13/10-phase-13-review.md), [Phase 14](docs/phase-14/10-phase-14-review.md), and [Phase 15A](docs/phase-15a/10-phase-15a-review.md).
+The authoritative product baseline is in [Phase 1](docs/phase-01/12-phase-01-review.md). The V1 design is in [Phase 2](docs/phase-02/01-architecture-overview.md), and its logical contracts are in [Phase 3](docs/phase-03/21-phase-03-review.md). Implementation reviews cover [Phase 4](docs/phase-04/10-phase-04-review.md), [Phase 5](docs/phase-05/10-phase-05-review.md), [Phase 6](docs/phase-06/10-phase-06-review.md), [Phase 7](docs/phase-07/10-phase-07-review.md), [Phase 8](docs/phase-08/10-phase-08-review.md), [Phase 9](docs/phase-09/10-phase-09-review.md), [Phase 10](docs/phase-10/10-phase-10-review.md), [Phase 11](docs/phase-11/10-phase-11-review.md), [Phase 12](docs/phase-12/10-phase-12-review.md), [Phase 13](docs/phase-13/10-phase-13-review.md), [Phase 14](docs/phase-14/10-phase-14-review.md), [Phase 15A](docs/phase-15a/10-phase-15a-review.md), and [Phase 15B](docs/phase-15b/13-phase-15b-review.md).
 
 ## Implemented platform boundary
 
-Phase 14 verifies the deterministic platform, optional advisory AI intelligence, and local `renzai-sdk` and `@renzai/sdk` API v1 packages across unit, contract, E2E, live PostgreSQL/Redis, concurrency, compatibility, coverage, and performance layers. SDKs are not published to PyPI or npm. Renzai still does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, notifications, webhooks, autonomous remediation, or agents.
+Phase 15B packages the frozen deterministic platform, optional advisory AI intelligence, and local `renzai-sdk` and `@renzai/sdk` API v1 packages for production-like self-hosting with operator-controlled metrics, traces, logs, dashboards, and CI checks. The complete Compose and observability profiles have been verified on a local Docker Desktop host, including persistence restarts and live PostgreSQL/Redis integration. This remains operational hardening, not production certification. SDKs are not published to PyPI or npm. Renzai still does **not** implement streaming, tools/functions, multimodal input, full OpenAI parity, notifications, webhooks, autonomous remediation, or agents.
 
 ## Repository layout
 
@@ -37,6 +37,9 @@ Phase 14 verifies the deterministic platform, optional advisory AI intelligence,
 - `docs/phase-13` — threat refresh, hardening evidence, findings register, traceability, and review.
 - `docs/phase-14` — test strategy, inventory, traceability, coverage, live-service evidence, gaps, and review.
 - `docs/phase-15a` — UI/UX scope, design system, information architecture, workflow design, accessibility, testing, security regression, and review.
+- `docs/phase-15b` — containers, Compose networking, health, logging, telemetry, metrics, dashboards, CI, deployment hardening, recovery, and verification.
+- `infrastructure` — production Dockerfiles and repository-controlled Nginx, OpenTelemetry Collector, Prometheus, and Grafana configuration.
+- `deploy` — deployment environment template; real deployment secrets remain untracked.
 - `docs/development` — local setup and command reference.
 
 ## Local development
@@ -59,3 +62,7 @@ pnpm --dir apps/web build
 ```
 
 See [local development](docs/development/local-development.md) for setup, [configuration](docs/development/configuration.md) for environment rules, and [testing](docs/development/testing.md) for what is and is not an integration check.
+
+## Self-hosted Compose
+
+The Compose topology and operator configuration are documented in [Phase 15B deployment hardening](docs/phase-15b/10-deployment-and-security-hardening.md). The API, worker, and web images, migration gate, core services, observability profile, routing, session/CSRF flow, worker path, telemetry, dashboards, and safe restart persistence were verified on a local Docker Desktop host. This verifies the repository's local deployment path; it is not production certification. TLS, secret injection, automated backups, public ingress, capacity planning, upgrades, and production incident response remain operator responsibilities.

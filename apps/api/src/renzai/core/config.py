@@ -47,6 +47,18 @@ class RedisConfig(BaseModel):
 class LoggingConfig(BaseModel):
     level: str
     json_logs: bool
+    service: str
+    environment: Environment
+
+
+class ObservabilityConfig(BaseModel):
+    metrics_enabled: bool
+    metrics_path: str
+    tracing_enabled: bool
+    service_name: str
+    otlp_traces_endpoint: str | None
+    trace_sample_ratio: float
+    worker_metrics_port: int
 
 
 class CorsConfig(BaseModel):
@@ -521,6 +533,58 @@ class Settings(BaseSettings):
             "RENZAI_CELERY_TASK_ALWAYS_EAGER", "celery_task_always_eager"
         ),
     )
+    observability_metrics_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "RENZAI_OBSERVABILITY_METRICS_ENABLED", "observability_metrics_enabled"
+        ),
+    )
+    observability_metrics_path: str = Field(
+        default="/metrics",
+        pattern=r"^/[A-Za-z0-9/_-]{1,127}$",
+        validation_alias=AliasChoices(
+            "RENZAI_OBSERVABILITY_METRICS_PATH", "observability_metrics_path"
+        ),
+    )
+    observability_tracing_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "RENZAI_OBSERVABILITY_TRACING_ENABLED", "observability_tracing_enabled"
+        ),
+    )
+    observability_service_name: str = Field(
+        default="renzai-api",
+        min_length=1,
+        max_length=80,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$",
+        validation_alias=AliasChoices(
+            "RENZAI_OBSERVABILITY_SERVICE_NAME", "observability_service_name"
+        ),
+    )
+    observability_otlp_traces_endpoint: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "RENZAI_OBSERVABILITY_OTLP_TRACES_ENDPOINT",
+            "observability_otlp_traces_endpoint",
+        ),
+    )
+    observability_trace_sample_ratio: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        validation_alias=AliasChoices(
+            "RENZAI_OBSERVABILITY_TRACE_SAMPLE_RATIO", "observability_trace_sample_ratio"
+        ),
+    )
+    observability_worker_metrics_port: int = Field(
+        default=9108,
+        ge=1024,
+        le=65535,
+        validation_alias=AliasChoices(
+            "RENZAI_OBSERVABILITY_WORKER_METRICS_PORT",
+            "observability_worker_metrics_port",
+        ),
+    )
 
     @model_validator(mode="after")
     def validate_safe_defaults(self) -> Self:
@@ -593,6 +657,19 @@ class Settings(BaseSettings):
             not self._valid_exact_host(host) for host in self.outbound_trusted_local_provider_hosts
         ):
             raise ValueError("local provider allowlist entries must be exact hostnames or IPs")
+        if self.observability_tracing_enabled:
+            if not self.observability_otlp_traces_endpoint:
+                raise ValueError("OTLP traces endpoint is required when tracing is enabled")
+            parsed_endpoint = urlsplit(self.observability_otlp_traces_endpoint)
+            if (
+                parsed_endpoint.scheme not in {"http", "https"}
+                or not parsed_endpoint.hostname
+                or parsed_endpoint.username is not None
+                or parsed_endpoint.password is not None
+                or parsed_endpoint.query
+                or parsed_endpoint.fragment
+            ):
+                raise ValueError("OTLP traces endpoint must be a credential-free HTTP(S) URL")
         return self
 
     @staticmethod
@@ -651,6 +728,20 @@ class Settings(BaseSettings):
             json_logs=self.logging_json
             if self.logging_json is not None
             else self.app_environment is Environment.PRODUCTION,
+            service=self.observability_service_name,
+            environment=self.app_environment,
+        )
+
+    @cached_property
+    def observability(self) -> ObservabilityConfig:
+        return ObservabilityConfig(
+            metrics_enabled=self.observability_metrics_enabled,
+            metrics_path=self.observability_metrics_path,
+            tracing_enabled=self.observability_tracing_enabled,
+            service_name=self.observability_service_name,
+            otlp_traces_endpoint=self.observability_otlp_traces_endpoint,
+            trace_sample_ratio=self.observability_trace_sample_ratio,
+            worker_metrics_port=self.observability_worker_metrics_port,
         )
 
     @cached_property
@@ -781,8 +872,4 @@ class Settings(BaseSettings):
 
     @cached_property
     def security_engine(self) -> FoundationGroupConfig:
-        return FoundationGroupConfig(configured=True)
-
-    @cached_property
-    def observability(self) -> FoundationGroupConfig:
         return FoundationGroupConfig(configured=True)

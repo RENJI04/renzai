@@ -1,0 +1,7 @@
+# Backup, recovery, and troubleshooting
+
+PostgreSQL data lives in the `postgres-data` volume; Redis AOF data lives in `redis-data`. The repository does not automate production backups. A safe logical backup pattern is `docker compose --env-file deploy/.env exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > renzai.dump` after exporting those two variables in the operator shell. Restore only into an intentionally selected empty/maintenance database with a compatible `pg_restore` version, after verifying the backup and stopping writers. Never test restore by overwriting the only production database.
+
+For PostgreSQL failure, preserve the volume, check disk and credentials, restore service, then wait for readiness. For Redis failure, restore Redis before security-required rate-limit/session paths; those paths remain fail closed. For a worker failure, restart it after Redis and inspect safe task logs—duplicate-delivery protections remain authoritative. Provider outages affect only their bounded workflows and must not disable deterministic analysis.
+
+For disk full, stop writers, preserve volumes, expand or safely reclaim storage, and validate database integrity. For migration failure, inspect the one-shot job and correct configuration or data; never edit a historical migration. For crash loops, use `docker compose --env-file deploy/.env ps` and bounded service logs. Observability outages are non-enforcement failures: restore telemetry separately without bypassing security behavior.

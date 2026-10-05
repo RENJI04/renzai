@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import timedelta
+from time import perf_counter
 
 import structlog
 from fastapi import FastAPI, Request
@@ -25,24 +26,45 @@ from renzai.core.request_context import (
     reset_request_id,
 )
 from renzai.core.security_headers import configure_security_headers
+from renzai.infrastructure.observability.metrics import record_http_request, render_metrics
+from renzai.infrastructure.observability.telemetry import (
+    TelemetryRuntime,
+    configure_api_telemetry,
+)
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = create_request_id(request.headers.get(REQUEST_ID_HEADER))
         token = bind_request_id(request_id)
+        started = perf_counter()
         try:
             response = await call_next(request)
             response.headers[REQUEST_ID_HEADER] = request_id
             safe_path = _safe_log_path(request.url.path)
+            matched_route = request.scope.get("route")
+            route = getattr(matched_route, "path", None)
+            safe_route = route if isinstance(route, str) and route.startswith("/") else "unmatched"
+            duration_seconds = perf_counter() - started
             request.scope["path"] = safe_path
             request.scope["raw_path"] = safe_path.encode("utf-8")
             structlog.get_logger("http").info(
                 "request_completed",
                 method=request.method,
-                path=safe_path,
+                path=safe_route,
+                route=safe_route,
                 status=response.status_code,
+                duration_ms=round(duration_seconds * 1000, 3),
             )
+            observability = request.app.state.settings.observability
+            if observability.metrics_enabled:
+                record_http_request(
+                    observability.service_name,
+                    request.method,
+                    safe_route,
+                    response.status_code,
+                    duration_seconds,
+                )
             return response
         finally:
             reset_request_id(token)
@@ -64,14 +86,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """Build an application without network work or feature initialization at import time."""
     resolved_settings = settings or Settings()
     configure_logging(resolved_settings.logging)
+    telemetry = TelemetryRuntime()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.dependencies = build_runtime_dependencies(resolved_settings)
+        telemetry.instrument_database(app.state.dependencies.database.engine)
         try:
             yield
         finally:
             await app.state.dependencies.close()
+            telemetry.shutdown()
 
     app = FastAPI(
         title="Renzai API",
@@ -107,4 +132,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(app)
     app.include_router(root_router)
     app.include_router(api_router)
+    if resolved_settings.observability.metrics_enabled:
+
+        @app.get(resolved_settings.observability.metrics_path, include_in_schema=False)
+        async def metrics() -> Response:
+            content, content_type = render_metrics()
+            return Response(
+                content=content,
+                headers={"Content-Type": content_type, "Cache-Control": "no-store"},
+            )
+
+    telemetry = configure_api_telemetry(
+        app, resolved_settings.observability, resolved_settings.app.environment
+    )
     return app

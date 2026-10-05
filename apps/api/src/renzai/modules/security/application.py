@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from renzai.core.config import PrivacyMode
 from renzai.core.ids import new_uuid7
 from renzai.core.time import utc_now
+from renzai.infrastructure.observability.metrics import record_security_operation
 from renzai.modules.applications.models import Application
 from renzai.modules.policies.application import PolicyService
 from renzai.modules.policies.domain import (
@@ -255,6 +256,8 @@ class AnalysisService:
         except SQLAlchemyError as error:
             await self.db.rollback()
             raise InspectionFailure("analysis persistence failed") from error
+
+        record_security_operation("analysis", decision.action.value)
 
         if redaction_failure is not None:
             raise InspectionFailure(

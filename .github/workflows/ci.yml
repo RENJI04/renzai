@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend / Python 3.13
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install --requirement requirements.lock
+      - run: python -m pip install --no-deps --editable .
+      - run: python -m ruff check .
+      - run: python -m ruff format --check .
+      - run: python -m mypy
+      - run: python -m pytest -m "not postgresql and not redis"
+      - run: python scripts/verify_phase15b_assets.py
+
+  live-services:
+    name: PostgreSQL and Redis integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: renzai_test
+          POSTGRES_USER: renzai
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U renzai -d renzai_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:8.2.1-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      RENZAI_TEST_DATABASE_URL: postgresql+asyncpg://renzai:ci-only-password@127.0.0.1:5432/renzai_test
+      RENZAI_TEST_REDIS_URL: redis://127.0.0.1:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install --requirement requirements.lock
+      - run: python -m pip install --no-deps --editable .
+      - run: alembic upgrade head
+        env:
+          RENZAI_DATABASE_URL: postgresql+asyncpg://renzai:ci-only-password@127.0.0.1:5432/renzai_test
+      - run: python scripts/run_phase14_tests.py postgresql
+      - run: python scripts/run_phase14_tests.py redis
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.21.1
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir apps/web format:check
+      - run: pnpm --dir apps/web lint
+      - run: pnpm --dir apps/web typecheck
+      - run: pnpm --dir apps/web test
+      - run: pnpm --dir apps/web build
+
+  sdks:
+    name: SDKs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --editable "packages/python-sdk[dev]"
+      - run: python scripts/run_phase14_tests.py python-sdk
+      - if: matrix.python-version == '3.13'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - if: matrix.python-version == '3.13'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.21.1
+          cache: pnpm
+      - if: matrix.python-version == '3.13'
+        run: pnpm install --frozen-lockfile
+      - if: matrix.python-version == '3.13'
+        run: python scripts/run_phase14_tests.py typescript-sdk
+
+  containers:
+    name: Production containers and Compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose model
+        run: RENZAI_ENV_FILE=deploy/.env.example docker compose --env-file deploy/.env.example config --quiet
+      - run: docker build --file infrastructure/docker/Dockerfile.api --tag renzai-api:ci .
+      - run: docker build --file infrastructure/docker/Dockerfile.worker --tag renzai-worker:ci .
+      - run: docker build --file infrastructure/docker/Dockerfile.web --tag renzai-web:ci .

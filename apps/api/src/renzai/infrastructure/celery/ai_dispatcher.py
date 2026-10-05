@@ -6,6 +6,8 @@ from uuid import UUID
 
 from celery import Celery
 
+from renzai.core.request_context import get_request_id
+
 
 class AITaskDispatcher:
     def __init__(self, broker_url: str, *, eager: bool) -> None:
@@ -20,4 +22,5 @@ class AITaskDispatcher:
         self._client.send_task(
             "renzai.ai_intelligence.process",
             args=[str(organization_id), str(request_id)],
+            headers={"x-renzai-request-id": get_request_id() or ""},
         )

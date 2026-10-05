@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from renzai.core.errors import ConfigurationError, ValidationError
 from renzai.core.ids import new_uuid7
+from renzai.infrastructure.observability.metrics import record_security_operation
 from renzai.modules.applications.models import Application
 from renzai.modules.environments.models import Environment
 from renzai.modules.gateway.domain import inspection_text, redact_messages
@@ -312,3 +313,4 @@ class GatewayService:
         except Exception as error:
             await self.db.rollback()
             raise GatewayInspectionFailure() from error
+        record_security_operation("gateway", outcome)

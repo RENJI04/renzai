@@ -1,0 +1,27 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {"type": "timeseries", "title": "API request rate", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(renzai_http_requests_total[5m])) by (route)", "legendFormat": "{{route}}", "refId": "A"}], "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}},
+    {"type": "timeseries", "title": "API p95 latency", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "histogram_quantile(0.95, sum(rate(renzai_http_request_duration_seconds_bucket[5m])) by (le, route))", "legendFormat": "{{route}}", "refId": "A"}], "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}},
+    {"type": "timeseries", "title": "HTTP 5xx rate", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(renzai_http_requests_total{status_class=\"5xx\"}[5m]))", "legendFormat": "5xx", "refId": "A"}], "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8}},
+    {"type": "timeseries", "title": "Analyze decisions", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(renzai_security_operations_total{operation=\"analysis\"}[5m])) by (outcome)", "legendFormat": "{{outcome}}", "refId": "A"}], "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8}},
+    {"type": "timeseries", "title": "Gateway outcomes", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(renzai_security_operations_total{operation=\"gateway\"}[5m])) by (outcome)", "legendFormat": "{{outcome}}", "refId": "A"}], "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8}},
+    {"type": "timeseries", "title": "Incident creation", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(renzai_security_operations_total{operation=\"incident\",outcome=\"automatic_created\"}[5m]))", "legendFormat": "created", "refId": "A"}], "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16}},
+    {"type": "timeseries", "title": "Worker task status", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum(rate(renzai_worker_tasks_total[5m])) by (task, status)", "legendFormat": "{{task}} {{status}}", "refId": "A"}], "gridPos": {"h": 8, "w": 8, "x": 8, "y": 16}},
+    {"type": "stat", "title": "PostgreSQL up", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "max(pg_up)", "refId": "A"}], "gridPos": {"h": 4, "w": 4, "x": 16, "y": 16}},
+    {"type": "stat", "title": "Redis up", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "max(redis_up)", "refId": "A"}], "gridPos": {"h": 4, "w": 4, "x": 20, "y": 16}},
+    {"type": "stat", "title": "API ready", "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "max(renzai_readiness)", "refId": "A"}], "gridPos": {"h": 4, "w": 8, "x": 16, "y": 20}}
+  ],
+  "refresh": "15s",
+  "schemaVersion": 42,
+  "tags": ["renzai", "operations"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Renzai Platform Overview",
+  "uid": "renzai-platform-overview",
+  "version": 1
+}

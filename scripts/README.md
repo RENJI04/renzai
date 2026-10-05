@@ -18,3 +18,15 @@ coverage, SDK, compatibility, and release-candidate checks. `verify_phase14_fron
 starts the real API and Next server on free loopback ports and verifies the same-origin rewrite,
 session cookie, CSRF write, and tenant read without external services. The enhanced Phase 12
 compatibility verifier also compares Python and TypeScript Analyze semantics.
+
+`validate_deployment_env.py` fails the migration job before startup when production deployment
+placeholders, insecure cookie settings, non-JSON logging, or a non-HTTPS public URL remain.
+`verify_phase15b_assets.py` statically checks the Phase 15B network, hardening, proxy, scrape, and
+dashboard cardinality boundaries. `smoke_compose.py` verifies an already-running Compose stack
+without creating users, organizations, or other product data; pass `--observability` to include
+Prometheus target and Grafana health checks.
+
+`benchmark_phase15b.py` compares the same local HTTP liveness request with metrics disabled and
+enabled, and compares deterministic Analyze/Gateway inspection paths with and without their bounded
+counter update. It excludes auth, persistence, provider network latency, and exporter latency. Results
+are local observations, not production SLAs.

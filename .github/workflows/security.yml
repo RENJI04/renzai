@@ -1,0 +1,70 @@
+name: Security assurance
+
+on:
+  pull_request:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+
+  filesystem-scan:
+    name: Repository vulnerability and secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  image-assurance:
+    name: Image scan and SBOM
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: api
+            dockerfile: infrastructure/docker/Dockerfile.api
+          - name: worker
+            dockerfile: infrastructure/docker/Dockerfile.worker
+          - name: web
+            dockerfile: infrastructure/docker/Dockerfile.web
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --file ${{ matrix.image.dockerfile }} --tag renzai-${{ matrix.image.name }}:security .
+      - uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: renzai-${{ matrix.image.name }}:security
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - uses: anchore/sbom-action@v0.21.0
+        with:
+          image: renzai-${{ matrix.image.name }}:security
+          format: spdx-json
+          artifact-name: renzai-${{ matrix.image.name }}-sbom.spdx.json

@@ -58,6 +58,17 @@ def add_request_context(
     return event_dict
 
 
+def _add_service_context(config: LoggingConfig) -> structlog.types.Processor:
+    def add_service_context(
+        _: Any, __: str, event_dict: MutableMapping[str, Any]
+    ) -> MutableMapping[str, Any]:
+        event_dict.setdefault("service", config.service)
+        event_dict.setdefault("environment", config.environment.value)
+        return event_dict
+
+    return add_service_context
+
+
 def configure_logging(config: LoggingConfig) -> None:
     """Configure standard-library and structlog output once application creation begins."""
     logging.basicConfig(
@@ -69,6 +80,7 @@ def configure_logging(config: LoggingConfig) -> None:
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
+            _add_service_context(config),
             add_request_context,
             redact_sensitive_fields,
             structlog.processors.add_log_level,

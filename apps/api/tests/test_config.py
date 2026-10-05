@@ -24,6 +24,9 @@ def test_phase_three_secure_defaults_are_typed() -> None:
     assert settings.gateway.max_body_bytes == 96 * 1024
     assert settings.gateway.max_message_count == 32
     assert settings.gateway.max_tokens == 4096
+    assert settings.observability.metrics_enabled is False
+    assert settings.observability.tracing_enabled is False
+    assert settings.observability.trace_sample_ratio == 0.05
     assert (
         settings.application_keys.verifier_key.get_secret_value()
         != settings.session.verifier_key.get_secret_value()
@@ -138,3 +141,23 @@ def test_provider_credential_roots_are_separate_and_secure_outside_development()
             provider_credential_active_key_id="provider-v1",
             provider_credential_keys={"provider-v1": "short-root"},
         )
+
+
+def test_tracing_requires_a_credential_free_http_endpoint() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            database_url="sqlite+aiosqlite://",
+            observability_tracing_enabled=True,
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            database_url="sqlite+aiosqlite://",
+            observability_tracing_enabled=True,
+            observability_otlp_traces_endpoint="https://user:secret@collector.example/v1/traces",
+        )
+    settings = Settings(
+        database_url="sqlite+aiosqlite://",
+        observability_tracing_enabled=True,
+        observability_otlp_traces_endpoint="http://collector:4318/v1/traces",
+    )
+    assert settings.observability.tracing_enabled is True

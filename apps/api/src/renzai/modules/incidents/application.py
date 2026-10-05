@@ -20,6 +20,7 @@ from renzai.core.errors import (
 from renzai.core.ids import new_uuid7
 from renzai.core.request_context import get_request_id
 from renzai.core.time import utc_now
+from renzai.infrastructure.observability.metrics import record_security_operation
 from renzai.modules.applications.models import Application
 from renzai.modules.audit.models import AuditEvent
 from renzai.modules.environments.models import Environment
@@ -85,6 +86,7 @@ class IncidentService:
         event_id = event.event_id
         existing = await self._automatic_existing(organization_id, event_id, trigger_rule_id)
         if existing is not None:
+            record_security_operation("incident", "automatic_deduplicated")
             return existing
 
         severity = IncidentSeverity(str(analysis.risk_severity))
@@ -157,10 +159,12 @@ class IncidentService:
             existing = await self._automatic_existing(organization_id, event_id, trigger_rule_id)
             if existing is None:
                 raise IncidentPersistenceFailure("incident persistence conflict") from None
+            record_security_operation("incident", "automatic_deduplicated")
             return existing
         except SQLAlchemyError as error:
             await self.db.rollback()
             raise IncidentPersistenceFailure("incident persistence failed") from error
+        record_security_operation("incident", "automatic_created")
         return incident
 
     async def create_manual(
