@@ -1,0 +1,21 @@
+meta {
+  name: Create development environment
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/api/v1/organizations/{{organization_id}}/applications/{{application_id}}/environments
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Origin: {{base_url}}
+  X-Renzai-CSRF: {{csrf_token}}
+}
+
+body:json {
+  {"type":"development"}
+}

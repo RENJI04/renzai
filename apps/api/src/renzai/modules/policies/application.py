@@ -101,7 +101,10 @@ async def bootstrap_application_baseline(
             redaction_targets=list(definition.redaction_targets),
             activated_at=utc_now(),
         )
-        db.add_all([policy, version])
+        db.add(policy)
+        await db.flush()
+        db.add(version)
+        await db.flush()
         for ordinal, condition in enumerate(definition.conditions):
             db.add(
                 PolicyCondition(

@@ -181,7 +181,10 @@ class AnalysisService:
             risk_ms=risk_ms,
             policy_ms=policy_ms,
         )
-        self.db.add_all([event, result])
+        self.db.add(event)
+        await self.db.flush()
+        self.db.add(result)
+        await self.db.flush()
 
         response_findings: list[dict[str, object]] = []
         for finding_id, domain_finding in zip(finding_ids, computation.findings, strict=True):
@@ -209,6 +212,7 @@ class AnalysisService:
             item["finding_id"] = str(finding_id)
             response_findings.append(item)
 
+        await self.db.flush()
         for contribution in risk.contributions:
             self.db.add(
                 RiskContribution(

@@ -1,0 +1,23 @@
+meta {
+  name: Analyze safe synthetic text
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/api/v1/analyze
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{application_key}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {"direction":"input","content":"Summarize the synthetic support request."}
+}

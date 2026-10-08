@@ -1,0 +1,15 @@
+name: Security issue
+description: Redirect a potential vulnerability to private reporting.
+title: "Do not submit security details here"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not post vulnerability details publicly. Use GitHub private vulnerability reporting if enabled. Otherwise follow SECURITY.md and request a private reporting channel without including exploit details.
+  - type: checkboxes
+    id: acknowledged
+    attributes:
+      label: Private reporting
+      options:
+        - label: I will not submit secrets, personal data, or vulnerability details in this public issue.
+          required: true

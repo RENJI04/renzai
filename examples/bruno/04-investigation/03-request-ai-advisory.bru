@@ -1,0 +1,22 @@
+meta {
+  name: Request optional advisory AI
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{base_url}}/api/v1/organizations/{{organization_id}}/incidents/{{incident_id}}/ai-analysis
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Origin: {{base_url}}
+  X-Renzai-CSRF: {{csrf_token}}
+  Idempotency-Key: bruno-synthetic-advisory-001
+}
+
+body:json {
+  {"task_type":"incident_summary","disclosure_mode":"metadata_only"}
+}

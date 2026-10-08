@@ -1,0 +1,9 @@
+# Explicit local-evaluation override. Production deployments must use compose.yaml alone.
+services:
+  migrate:
+    env_file: ["deploy/.env.demo"]
+    command: ["alembic", "upgrade", "head"]
+  renzai-api:
+    env_file: ["deploy/.env.demo"]
+  renzai-worker:
+    env_file: ["deploy/.env.demo"]

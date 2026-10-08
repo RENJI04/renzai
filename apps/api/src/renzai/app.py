@@ -1,4 +1,4 @@
-"""FastAPI application factory through the Phase 11 optional intelligence boundary."""
+"""FastAPI application factory for the Renzai platform."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from time import perf_counter
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
@@ -31,6 +32,52 @@ from renzai.infrastructure.observability.telemetry import (
     TelemetryRuntime,
     configure_api_telemetry,
 )
+
+OPENAPI_TAGS = [
+    {
+        "name": "authentication",
+        "description": "Opaque browser sessions, CSRF bootstrap, and account security.",
+    },
+    {
+        "name": "organizations",
+        "description": "Organization tenancy, membership, invitations, and role administration.",
+    },
+    {
+        "name": "applications",
+        "description": "Applications, environments, and one-time application-key lifecycle.",
+    },
+    {
+        "name": "security",
+        "description": "Deterministic Analyze and session-authenticated Security Playground.",
+    },
+    {
+        "name": "gateway",
+        "description": (
+            "Limited non-streaming, text-only chat Gateway with input/output enforcement."
+        ),
+    },
+    {
+        "name": "policies",
+        "description": "Versioned deterministic risk profiles and policy configuration.",
+    },
+    {
+        "name": "providers",
+        "description": "Tenant-scoped provider configuration with protected credentials.",
+    },
+    {
+        "name": "incidents",
+        "description": "Incident queue, evidence, optimistic lifecycle, assignment, and comments.",
+    },
+    {
+        "name": "analytics",
+        "description": "Privacy-bounded operational security and provider analytics.",
+    },
+    {
+        "name": "ai-intelligence",
+        "description": "Optional asynchronous advisory analysis; never authoritative enforcement.",
+    },
+    {"name": "health", "description": "Process liveness and dependency-aware readiness."},
+]
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
@@ -100,12 +147,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Renzai API",
-        version="0.0.0-phase-11",
+        version="0.0.0-phase-16",
         description=(
-            "Renzai identity, deterministic security analysis, provider management, "
-            "limited non-streaming chat Gateway, incidents, analytics, and optional "
-            "AI intelligence."
+            "Renzai's V1 API for deterministic security analysis, policy enforcement, "
+            "limited non-streaming text Gateway, incidents, analytics, and optional advisory "
+            "AI intelligence. Data-plane Analyze and Gateway calls use an environment-scoped "
+            "application key as an HTTP Bearer credential. Control-plane calls use an opaque "
+            "HttpOnly session cookie; state-changing calls also require the exact "
+            "X-Renzai-CSRF value returned by GET /api/v1/auth/session. Error responses use the "
+            "stable Renzai error envelope and include a request identifier."
         ),
+        openapi_tags=OPENAPI_TAGS,
         docs_url="/docs" if resolved_settings.app.expose_docs else None,
         redoc_url=None,
         openapi_url="/openapi.json" if resolved_settings.app.expose_docs else None,
@@ -145,4 +197,81 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     telemetry = configure_api_telemetry(
         app, resolved_settings.observability, resolved_settings.app.environment
     )
+    _configure_openapi_auth(app)
     return app
+
+
+def _configure_openapi_auth(app: FastAPI) -> None:
+    """Describe existing authentication requirements without changing route behavior."""
+
+    def custom_openapi() -> dict[str, object]:
+        if app.openapi_schema is not None:
+            return app.openapi_schema
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+            tags=app.openapi_tags,
+        )
+        components = schema.setdefault("components", {})
+        assert isinstance(components, dict)
+        security_schemes = components.setdefault("securitySchemes", {})
+        assert isinstance(security_schemes, dict)
+        security_schemes.update(
+            {
+                "ApplicationBearer": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "description": "Environment-scoped Renzai application API key.",
+                },
+                "SessionCookie": {
+                    "type": "apiKey",
+                    "in": "cookie",
+                    "name": "renzai_session",
+                    "description": (
+                        "Opaque HttpOnly session cookie. Production uses the __Host- prefix."
+                    ),
+                },
+                "CsrfHeader": {
+                    "type": "apiKey",
+                    "in": "header",
+                    "name": "X-Renzai-CSRF",
+                    "description": "Required with the session cookie on state-changing routes.",
+                },
+            }
+        )
+        paths = schema.get("paths", {})
+        assert isinstance(paths, dict)
+        public_paths = {
+            "/health",
+            "/ready",
+            "/api/v1/health",
+            "/api/v1/ready",
+            "/api/v1/auth/register",
+            "/api/v1/auth/login",
+            "/api/v1/auth/password/reset/request",
+            "/api/v1/auth/password/reset/confirm",
+            "/api/v1/auth/email/verification/confirm",
+        }
+        application_paths = {"/api/v1/analyze", "/v1/chat/completions"}
+        for path, path_item in paths.items():
+            if not isinstance(path_item, dict):
+                continue
+            for method, operation in path_item.items():
+                if method not in {"get", "post", "put", "patch", "delete"} or not isinstance(
+                    operation, dict
+                ):
+                    continue
+                if path in application_paths:
+                    operation["security"] = [{"ApplicationBearer": []}]
+                elif path not in public_paths:
+                    operation["security"] = (
+                        [{"SessionCookie": [], "CsrfHeader": []}]
+                        if method in {"post", "put", "patch", "delete"}
+                        else [{"SessionCookie": []}]
+                    )
+        app.openapi_schema = schema
+        return schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]

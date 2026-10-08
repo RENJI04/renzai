@@ -1,0 +1,20 @@
+meta {
+  name: Register synthetic user
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Origin: {{base_url}}
+}
+
+body:json {
+  {"email":"{{demo_email}}","password":"{{demo_password}}"}
+}

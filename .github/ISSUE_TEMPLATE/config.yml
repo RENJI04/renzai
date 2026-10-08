@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security reporting
+    url: https://github.com/security/advisories/new
+    about: Use the repository's private vulnerability reporting entry when available; otherwise follow SECURITY.md.

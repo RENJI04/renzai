@@ -184,6 +184,9 @@ async def test_persistence_failure_does_not_return_a_durable_analysis(
         def add(self, value: object) -> None:
             pass
 
+        async def flush(self) -> None:
+            pass
+
         async def commit(self) -> None:
             raise RuntimeError("synthetic commit failure")
 

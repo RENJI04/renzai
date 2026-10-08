@@ -1,0 +1,21 @@
+meta {
+  name: Create application
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/api/v1/organizations/{{organization_id}}/applications
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Origin: {{base_url}}
+  X-Renzai-CSRF: {{csrf_token}}
+}
+
+body:json {
+  {"name":"Support Copilot"}
+}

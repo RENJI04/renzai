@@ -1,0 +1,23 @@
+meta {
+  name: Limited non-streaming Gateway
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{base_url}}/v1/chat/completions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{application_key}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {"model":"configured-model","messages":[{"role":"user","content":"Safe synthetic request"}]}
+}

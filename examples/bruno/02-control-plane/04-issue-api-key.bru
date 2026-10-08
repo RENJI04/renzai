@@ -1,0 +1,21 @@
+meta {
+  name: Issue application key
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/api/v1/organizations/{{organization_id}}/applications/{{application_id}}/environments/{{environment_id}}/keys
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Origin: {{base_url}}
+  X-Renzai-CSRF: {{csrf_token}}
+}
+
+body:json {
+  {"label":"Bruno quick start"}
+}

@@ -1,0 +1,11 @@
+meta {
+  name: Dashboard analytics
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{base_url}}/api/v1/organizations/{{organization_id}}/analytics/dashboard?window=24h
+  body: none
+  auth: none
+}
