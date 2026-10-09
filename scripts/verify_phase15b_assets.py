@@ -51,6 +51,12 @@ def verify() -> list[str]:
         errors.append("API container health must verify readiness")
     if "HEALTHCHECK --interval=20s --timeout=15s" not in worker_dockerfile:
         errors.append("worker container health must allow the bounded Celery ping to finish")
+    for name, dockerfile in (("API", api_dockerfile), ("worker", worker_dockerfile)):
+        if "python -m pip uninstall --yes pip setuptools wheel" not in dockerfile:
+            errors.append(f"{name} builder must remove Python packaging tools from the venv")
+        runtime = dockerfile.split(" AS runtime", maxsplit=1)[-1]
+        if "python -m pip uninstall --yes pip" not in runtime:
+            errors.append(f"{name} runtime must remove the base image's Python package installer")
     if "/metrics" not in prometheus or "renzai-api:8000" not in prometheus:
         errors.append("Prometheus must scrape the internal API metrics endpoint")
     if "host: 0.0.0.0" not in collector or "port: 8888" not in collector:
