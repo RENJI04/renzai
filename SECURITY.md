@@ -1,7 +1,7 @@
 # Security policy
 
-Renzai v1.0.0 is a release candidate until publication is explicitly approved. The policy below
-describes maintenance after that publication; it is not a promise of a production SLA.
+Renzai v1.0.0 is the initial public release. The policy below describes its maintenance; it is not
+a promise of a production SLA.
 
 | Version | Security fixes |
 | --- | --- |

@@ -9,9 +9,9 @@ only the sanitized source archive, checksum manifest, and SPDX SBOMs to the GitH
 | Python SDK wheel | `renzai_sdk-0.1.0-py3-none-any.whl` | 21,227 | `b44697a80840c3ab62401deb2630db7e5db93b40aef010ae13a10f8fc5058f60` | Not approved for PyPI |
 | Python SDK sdist | `renzai_sdk-0.1.0.tar.gz` | 20,907 | `5eb4ca19666e919c5b365d7974a3c58b121764c5b8d2c004d8efbad4ce32227f` | Not approved for PyPI |
 | TypeScript SDK | `renzai-sdk-0.1.0.tgz` | 27,531 | `a18bc90e97f7371e65d42b9dd65711cdc9c78d82f487340009f27ee8aa0d7373` | Not approved for npm |
-| API SBOM | `sbom-release-api.spdx.json` | 1,597,483 | `e480824c034be22a74391206abac58bb2a5813aefd5580baec3d41cf5b11d00b` | Approved GitHub Release attachment |
-| Worker SBOM | `sbom-release-worker.spdx.json` | 1,597,924 | `8738911da04de14f239978fd96bd05bcb84aaa8f6579ea12ff6dba612d2bb41c` | Approved GitHub Release attachment |
-| Web SBOM | `sbom-release-web.spdx.json` | 267,618 | `4fbc5c433208328b04cd748e2dc80abd5e61a3d8f878aa77bcbd0a8f5180bb5a` | Approved GitHub Release attachment |
+| API SBOM | `sbom-release-api.spdx.json` | 1,251,025 | `93f71a51a4f8bc48b94bf6988b4c3c7965a5e46865200f51f1108396c1d14051` | Approved GitHub Release attachment |
+| Worker SBOM | `sbom-release-worker.spdx.json` | 1,251,358 | `d1d9b5371ec1fa6ad2f6440a989aa33b47260ad7968fb20fbe14e14064c3eca2` | Approved GitHub Release attachment |
+| Web SBOM | `sbom-release-web.spdx.json` | 269,173 | `d86b6146784bf1402a622b8eb781b58a28368ffa9ed87b7b20201c64b3cd9223` | Approved GitHub Release attachment |
 | Checksums | `SHA256SUMS` | Generated after the source archive | Self-excluded | Approved GitHub Release attachment |
 | Notes and images | [Release notes](../releases/v1.0.0.md) and synthetic screenshots | In source archive | Source archive checksum | Published with repository source |
 
@@ -21,7 +21,7 @@ local tags used for verification are not public. The SBOMs may be attached to th
 container registry publication remains separately authorized and is not part of Phase 17B.
 
 The source and SDK archives were unpacked and checked for private identities, other personal data,
-secrets, and machine-specific paths; no release blocker was found. The external checksum manifest
-covers the source archive, both SDK formats, and the three final SBOMs. It intentionally excludes
-itself. The pre-remediation source archive is quarantined outside this artifact set and must never
-be published.
+secrets, and machine-specific paths; no release blocker was found. The public checksum manifest
+covers the final source archive and three final SBOMs; unpublished SDK packages remain local and
+are not included in the public artifact set. The manifest intentionally excludes itself. The
+pre-remediation source archive is quarantined outside this artifact set and must never be published.
