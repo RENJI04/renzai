@@ -25,6 +25,7 @@ jobs:
           cache: pip
       - run: python -m pip install --requirement requirements.lock
       - run: python -m pip install --no-deps --editable .
+      - run: python -m pip install --no-deps --editable packages/python-sdk
       - run: python -m ruff check .
       - run: python -m ruff format --check .
       - run: python -m mypy
@@ -63,6 +64,7 @@ jobs:
           cache: pip
       - run: python -m pip install --requirement requirements.lock
       - run: python -m pip install --no-deps --editable .
+      - run: python -m pip install --no-deps --editable packages/python-sdk
       - run: alembic upgrade head
         env:
           RENZAI_DATABASE_URL: postgresql+asyncpg://renzai:ci-only-password@127.0.0.1:5432/renzai_test
