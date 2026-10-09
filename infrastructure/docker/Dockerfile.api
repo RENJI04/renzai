@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM python:3.13.16-alpine3.23 AS builder
+FROM python:3.14.8-alpine3.23 AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -14,7 +14,7 @@ RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --constraint requirements.lock . \
     && python -m pip uninstall --yes pip setuptools wheel
 
-FROM python:3.13.16-alpine3.23 AS runtime
+FROM python:3.14.8-alpine3.23 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
