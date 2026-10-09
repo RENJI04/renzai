@@ -78,7 +78,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 11.19.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22.21.1
           cache: pnpm
@@ -110,7 +110,7 @@ jobs:
         with:
           version: 11.19.0
       - if: matrix.python-version == '3.13'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22.21.1
           cache: pnpm
