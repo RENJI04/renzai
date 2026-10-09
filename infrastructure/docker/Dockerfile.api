@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM python:3.13.9-slim-bookworm AS builder
+FROM python:3.13.16-alpine3.23 AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -8,19 +8,21 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 RUN python -m venv "$VIRTUAL_ENV"
 WORKDIR /build
-COPY pyproject.toml requirements.lock README.md ./
+COPY pyproject.toml requirements.lock README.md LICENSE ./
 COPY apps/api/src ./apps/api/src
 RUN python -m pip install --upgrade pip setuptools wheel && python -m pip install --constraint requirements.lock .
 
-FROM python:3.13.9-slim-bookworm AS runtime
+FROM python:3.13.16-alpine3.23 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/opt/venv/bin:$PATH
 
-RUN groupadd --system --gid 10001 renzai \
-    && useradd --system --uid 10001 --gid renzai --home-dir /app --shell /usr/sbin/nologin renzai
+RUN apk upgrade --no-cache \
+    && addgroup -S -g 10001 renzai \
+    && adduser -S -D -H -u 10001 -G renzai renzai
 WORKDIR /app
+COPY LICENSE ./
 COPY --from=builder /opt/venv /opt/venv
 COPY alembic.ini ./
 COPY alembic ./alembic

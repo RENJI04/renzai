@@ -4,13 +4,16 @@
 
 **Open-Source AI Security & Observability Platform**
 
+**Secure by default. AI optional. Explainable by design.**
+
+[![CI](https://github.com/RENJI04/renzai/actions/workflows/ci.yml/badge.svg)](https://github.com/RENJI04/renzai/actions/workflows/ci.yml)
+[![Security assurance](https://github.com/RENJI04/renzai/actions/workflows/security.yml/badge.svg)](https://github.com/RENJI04/renzai/actions/workflows/security.yml)
+[![License: Apache-2.0](https://img.shields.io/github/license/RENJI04/renzai)](LICENSE)
+
 Renzai is a self-hostable security control plane for LLM applications. It inspects text traffic
 with deterministic detectors, explains risk, enforces declarative policy, investigates incidents,
 and exposes privacy-aware operational analytics. Optional AI incident intelligence is advisory;
 deterministic evidence and human decisions remain authoritative.
-
-> **Project status:** Phase 16 — Documentation, Demo & Adoption is complete. Phase 17 — v1.0
-> Release has not started. Renzai is not yet production-certified or released as v1.0.
 
 ## What Renzai provides
 
@@ -62,9 +65,10 @@ observability, and deployment diagrams.
 Prerequisites: Git, Docker Engine with Compose v2, and Python 3.11 or newer.
 
 ```bash
-git clone <your-fork-or-local-repository-url> renzai
+git clone https://github.com/RENJI04/renzai.git
 cd renzai
 python scripts/prepare_demo_env.py
+export RENZAI_ENV_FILE=deploy/.env.demo
 docker compose -f compose.yaml -f compose.demo.yaml --env-file deploy/.env.demo up --build -d
 python scripts/smoke_compose.py --env-file deploy/.env.demo
 ```
@@ -113,10 +117,10 @@ streaming, tools/functions, multimodal traffic, or full OpenAI API compatibility
 ## Security and privacy boundaries
 
 Renzai is secure-by-default within its documented boundary, not a universal prompt-injection cure.
-Detectors are deterministic and bypassable; policies require operator validation; metadata-only is
-the default privacy posture; and optional generated intelligence cannot enforce policy or mutate an
-incident. Production operators remain responsible for TLS, ingress, secret management, backups,
-capacity, upgrades, data residency, and incident response.
+Detectors are deterministic and bypassable; policies require operator validation; new applications
+default to redacted privacy mode (metadata-only is available); and optional generated intelligence
+cannot enforce policy or mutate an incident. Production operators remain responsible for TLS,
+ingress, secret management, backups, capacity, upgrades, data residency, and incident response.
 
 Read the [Security Model](docs/security/security-model.md),
 [Threat Catalog](docs/security/threat-catalog.md),
@@ -144,6 +148,9 @@ See [deployment hardening](docs/phase-15b/10-deployment-and-security-hardening.m
 - [SDK guide](docs/sdk.md)
 - [FAQ](docs/faq.md)
 - [Demo storyboard](docs/demo-storyboard.md)
+- [v1.0.0 release notes](docs/releases/v1.0.0.md)
+- [Compatibility evidence](docs/releases/compatibility.md)
+- [Changelog](CHANGELOG.md)
 - [Phase 16 review](docs/phase-16/13-phase-16-review.md)
 - [v1 release-candidate checklist](docs/release/v1-rc-checklist.md)
 
@@ -162,6 +169,7 @@ evidence remains under `docs/phase-01` through `docs/phase-16`.
 - `infrastructure` and `compose.yaml` — production-oriented self-hosting assets.
 - `compose.demo.yaml` — explicit local evaluation override.
 - `docs/phase-16` — Phase 16 scope, traceability, verification, and review.
+- `docs/phase-17` and `docs/releases` — release-candidate audit and publication plan.
 
 ## Development and contribution
 
@@ -169,7 +177,7 @@ For a native toolchain setup, see [Local Development](docs/development/local-dev
 [Configuration](docs/development/configuration.md), and [Testing](docs/development/testing.md).
 Contribution expectations and verification commands are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Renzai still does **not** implement notifications, webhooks, autonomous remediation, agents,
+Renzai does **not** implement notifications, webhooks, autonomous remediation, agents,
 streaming, tools/functions, multimodal input, or full provider-protocol parity. SDK packages and
-container images have not been published. No license file has been selected; that remains an
-explicit Phase 17 release blocker, so reuse terms are not yet granted.
+container images have not been published to external registries. Repository source is under the
+[Apache License 2.0](LICENSE).

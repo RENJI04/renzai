@@ -4,9 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "renzai"
-version = "0.0.0"
+version = "1.0.0"
 description = "Renzai open-source AI security and observability platform"
 readme = "README.md"
+license = "Apache-2.0"
 requires-python = ">=3.13"
 dependencies = [
   "alembic>=1.16,<2",

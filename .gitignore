@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+.npmrc
+.pypirc
 
 # Python
 __pycache__/
@@ -21,6 +23,7 @@ node_modules/
 coverage/
 dist/
 *.tgz
+*.tsbuildinfo
 playwright-report/
 test-results/
 

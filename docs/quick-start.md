@@ -15,6 +15,7 @@ POSIX shell:
 git clone <your-fork-or-local-repository-url> renzai
 cd renzai
 python scripts/prepare_demo_env.py
+export RENZAI_ENV_FILE=deploy/.env.demo
 docker compose -f compose.yaml -f compose.demo.yaml --env-file deploy/.env.demo up --build -d
 python scripts/smoke_compose.py --env-file deploy/.env.demo
 ```
@@ -25,6 +26,7 @@ PowerShell:
 git clone <your-fork-or-local-repository-url> renzai
 Set-Location renzai
 python .\scripts\prepare_demo_env.py
+$env:RENZAI_ENV_FILE = "deploy/.env.demo"
 docker compose -f compose.yaml -f compose.demo.yaml --env-file deploy/.env.demo up --build -d
 python .\scripts\smoke_compose.py --env-file deploy/.env.demo
 ```

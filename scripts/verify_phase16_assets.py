@@ -60,7 +60,8 @@ PUBLIC_TEXT_ROOTS = (
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 WINDOWS_LOCAL_PATH = re.compile(r"(?i)(?:[A-Z]:\\|C:/Users/|D:/codex/)")
 REAL_EMAIL = re.compile(
-    r"(?i)\b(?![\w.+-]+@(?:demo\.invalid|example\.com|example\.org))"
+    r"(?i)\b(?![\w.+-]+@(?:demo\.invalid|example\.com|example\.org"
+    r"|users\.noreply\.github\.com))"
     r"[\w.+-]+@[\w.-]+\.[A-Z]{2,}\b"
 )
 

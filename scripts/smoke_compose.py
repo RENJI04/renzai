@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -40,6 +41,7 @@ def _compose(*arguments: str, env_file: str) -> str:
     completed = subprocess.run(  # noqa: S603
         [docker, "compose", "--env-file", env_file, *arguments],
         cwd=ROOT,
+        env={**os.environ, "RENZAI_ENV_FILE": env_file},
         check=True,
         capture_output=True,
         text=True,

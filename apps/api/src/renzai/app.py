@@ -147,7 +147,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Renzai API",
-        version="0.0.0-phase-16",
+        version="1.0.0",
         description=(
             "Renzai's V1 API for deterministic security analysis, policy enforcement, "
             "limited non-streaming text Gateway, incidents, analytics, and optional advisory "
