@@ -1,6 +1,9 @@
 name: Security assurance
 
 on:
+  push:
+    branches: [main]
+    tags: ["v*"]
   pull_request:
   schedule:
     - cron: "23 4 * * 1"
@@ -22,15 +25,15 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
 
   filesystem-scan:
     name: Repository vulnerability and secret scan
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           scan-type: fs
@@ -54,16 +57,15 @@ jobs:
           - name: web
             dockerfile: infrastructure/docker/Dockerfile.web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - run: docker build --file ${{ matrix.image.dockerfile }} --tag renzai-${{ matrix.image.name }}:security .
       - uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: renzai-${{ matrix.image.name }}:security
           format: table
           severity: HIGH,CRITICAL
-          ignore-unfixed: true
           exit-code: "1"
-      - uses: anchore/sbom-action@v0.21.0
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: renzai-${{ matrix.image.name }}:security
           format: spdx-json
