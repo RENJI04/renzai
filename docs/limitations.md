@@ -14,7 +14,7 @@ Renzai V1 intentionally has a narrow, inspectable boundary:
   production SLA, formal compliance certification, external penetration-test certification, or
   formal WCAG certification.
 - Python and TypeScript SDKs are local source packages; they are not published to PyPI or npm.
-- The v1.0.0 release candidate remains unpublished until its Phase 17A privacy, security,
-  reproducibility, and publication-authorization gates are complete.
+- The v1.0.0 source release is published. SDK packages and container images remain unpublished and
+  must be built from source.
 
 These constraints keep the V1 contract clear. They are not promises of future implementation.

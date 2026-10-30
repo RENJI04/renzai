@@ -9,6 +9,9 @@ Renzai analysis, policy, tenancy, CSRF, rate limiting, or migrations.
 
 Prerequisites: Git, Docker Engine with Compose v2, and Python 3.11 or newer.
 
+Python 3.11+ covers the helper scripts used here and Python SDK examples. Native API and worker
+development/runtime uses Python 3.13+ as declared by the root project metadata.
+
 POSIX shell:
 
 ```bash

@@ -4,6 +4,28 @@ All notable changes to Renzai are recorded here. The project follows semantic ve
 application release. The Python and TypeScript SDKs have independent package versions and are not
 yet published.
 
+## [1.0.1] — Unreleased
+
+### Security
+
+- Upgrade Next.js from 16.3.8 to 16.4.3 to remediate GHSA-2464-fhr4-w9xw,
+  GHSA-673q-mjm6-r5xr, and CVE-2026-94482 while remaining on the supported 16.x line.
+- Update the transitive certifi lock from 2026.7.22 to 2026.10.23 to remediate
+  GHSA-6q48-6c7w-9gw2 without adding certifi as a direct dependency.
+- Refresh compatible transitive Vite and Zod tooling versions to clear retained high-severity
+  development-dependency advisories.
+- Pin external GitHub Actions to verified immutable revisions and move JavaScript actions to
+  Node 24-based releases where available.
+
+### Changed
+
+- Clarify the Python 3.11+ Quick Start/helper boundary and the Python 3.13+ native backend
+  development/runtime boundary.
+- Add an engineering-history guide while preserving the complete Phase 1–17 evidence in place.
+- Group compatible routine Dependabot version updates while keeping security updates separate.
+- Run security assurance on pushes to `main` and version tags in addition to pull requests,
+  schedules, and manual dispatches.
+
 ## [1.0.0] — 2026-10-09
 
 ### Added
