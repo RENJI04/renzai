@@ -9,7 +9,7 @@ Analyze and Playground use a lower 64-KiB request ceiling and retain the 32-KiB 
 limit; Gateway uses the lower configured 96-KiB request ceiling. Security-sensitive request models
 reject unknown fields.
 
-Phase 8 adds a JSON provider-credential key ring with an active key ID. Each root must contain at least 32 UTF-8 bytes, roots must be distinct from one another and from session/application-key verifier roots, and staging/production reject development placeholders. The default provider bounds are 3-second connect, 30-second chat, 5-second health, 128-KiB response, and zero redirects. Remote providers require HTTPS; local/private destinations require the local provider kind and an exact host entry in `RENZAI_OUTBOUND_TRUSTED_LOCAL_PROVIDER_HOSTS`; wildcards, CIDRs, and URL-like values are rejected.
+Provider credentials use a JSON key ring with an active key ID. Each root must contain at least 32 UTF-8 bytes, roots must be distinct from one another and from session/application-key verifier roots, and staging/production reject development placeholders. The default provider bounds are 3-second connect, 30-second chat, 5-second health, 128-KiB response, and zero redirects. Remote providers require HTTPS; local/private destinations require the local provider kind and an exact host entry in `RENZAI_OUTBOUND_TRUSTED_LOCAL_PROVIDER_HOSTS`; wildcards, CIDRs, and URL-like values are rejected.
 
 Production also rejects debug mode and exposed interactive API documentation. CORS entries must be
 exact HTTP(S) origins without credentials, path, query, or fragment, and production origins must use

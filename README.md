@@ -64,6 +64,9 @@ observability, and deployment diagrams.
 
 Prerequisites: Git, Docker Engine with Compose v2, and Python 3.11 or newer.
 
+Python 3.11+ is sufficient for the Quick Start helpers and Python SDK examples. Native Renzai API
+and worker development uses Python 3.13+.
+
 ```bash
 git clone https://github.com/RENJI04/renzai.git
 cd renzai
@@ -150,12 +153,12 @@ See [deployment hardening](docs/phase-15b/10-deployment-and-security-hardening.m
 - [Demo storyboard](docs/demo-storyboard.md)
 - [v1.0.0 release notes](docs/releases/v1.0.0.md)
 - [Compatibility evidence](docs/releases/compatibility.md)
+- [Engineering history](docs/engineering-history.md)
 - [Changelog](CHANGELOG.md)
-- [Phase 16 review](docs/phase-16/13-phase-16-review.md)
-- [v1 release-candidate checklist](docs/release/v1-rc-checklist.md)
 
 Historical product, architecture, contract, implementation, security, test, UI, and operations
-evidence remains under `docs/phase-01` through `docs/phase-16`.
+evidence remains intact under `docs/phase-01` through `docs/phase-17`; the engineering-history guide
+provides the product-level map.
 
 ## Repository layout
 
@@ -168,8 +171,8 @@ evidence remains under `docs/phase-01` through `docs/phase-16`.
 - `examples/attack-lab`, `examples/reference-app`, and `examples/bruno` — bounded adoption assets.
 - `infrastructure` and `compose.yaml` — production-oriented self-hosting assets.
 - `compose.demo.yaml` — explicit local evaluation override.
-- `docs/phase-16` — Phase 16 scope, traceability, verification, and review.
-- `docs/phase-17` and `docs/releases` — release-candidate audit and publication plan.
+- `docs` — current product, development, security, release, and preserved engineering-history
+  documentation.
 
 ## Development and contribution
 

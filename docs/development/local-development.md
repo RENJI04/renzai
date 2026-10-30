@@ -1,6 +1,9 @@
 # Local development
 
-Phase 5 supports Python 3.13+, Node.js 22+ and pnpm 11+. PostgreSQL and Redis are required for production behavior and full integration evidence; fast request tests use isolated SQLite and an in-memory rate-limit adapter.
+Native Renzai API and worker development uses Python 3.13+, Node.js 22+, and pnpm 11+. Python 3.11+
+remains sufficient for Quick Start helper scripts and the independently versioned Python SDK.
+PostgreSQL and Redis are required for production behavior and full integration evidence; fast
+request tests use isolated SQLite and an in-memory rate-limit adapter.
 
 1. Copy `.env.example` to `.env` and replace only local placeholders.
 2. Create `.venv` with `python -m venv .venv`, then install `.[dev]` with `.\.venv\Scripts\python -m pip install -e ".[dev]"` on Windows.

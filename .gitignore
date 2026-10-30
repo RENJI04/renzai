@@ -26,6 +26,8 @@ dist/
 *.tsbuildinfo
 playwright-report/
 test-results/
+# Next.js 16.4+ writes this local agent guidance when the dev server starts.
+apps/web/AGENTS.md
 
 # Editors and operating systems
 .DS_Store
